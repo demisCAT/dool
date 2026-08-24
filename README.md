@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Divina Natales
 
-## Getting Started
+Tienda web de comida casera para llevar. Los clientes eligen sus platos, completan sus datos de contacto y el pedido se envía armado a WhatsApp. Incluye panel de administración para gestionar productos, categorías y fotografías.
 
-First, run the development server:
+## Funcionalidades
+
+**Tienda**
+
+- Catálogo de productos agrupados por categorías, con fotografías y precios en CLP
+- Carrito de compras persistente (localStorage)
+- Formulario de contacto: nombre, teléfono, fecha de entrega y nota
+- Envío del pedido a WhatsApp con mensaje pre-armado (nombre, items, total y datos)
+
+**Administración (`/admin`)**
+
+- Login con correo y contraseña (Supabase Auth)
+- Alta, edición y borrado de productos
+- Subida de fotografías con vista previa
+- Productos ocultos/visibles y orden de aparición
+- Gestión de categorías
+
+## Stack
+
+- [Next.js 16](https://nextjs.org) (App Router, Server Actions, Tailwind CSS 4)
+- [Supabase](https://supabase.com): PostgreSQL, Auth y Storage de imágenes
+- WhatsApp: enlace `wa.me` (sin API, sin costo)
+
+## Configuración
+
+### 1. Crear el proyecto en Supabase
+
+1. Crea una cuenta y un proyecto en [supabase.com](https://supabase.com).
+2. En **SQL Editor → New query**, pega y ejecuta el contenido de [`supabase/schema.sql`](supabase/schema.sql). Crea las tablas, las políticas de seguridad y el bucket de fotos.
+
+### 2. Variables de entorno
+
+Copia el archivo de ejemplo y completa los valores:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Variable | Descripción |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto (Settings → API → Project URL) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública (Settings → API → anon public) |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio solo con dígitos, con código de país. Ej. Chile: `56912345678` |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Crear la cuenta de administrador
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. En Supabase: **Authentication → Users → Add user** y crea tu usuario con correo y contraseña.
+2. Recomendado: en **Authentication → Providers → Email**, desactiva "Enable email signups" para que nadie más pueda registrarse.
+3. Entra a `/admin` y usa esas credenciales.
 
-## Learn More
+## Desarrollo
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Abre [http://localhost:3000](http://localhost:3000). El panel de administración está en `/admin`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Producción
 
-## Deploy on Vercel
+```bash
+npm run build
+npm run start
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+También puedes desplegar en [Vercel](https://vercel.com): importa el repositorio y configura las mismas variables de entorno en el panel del proyecto.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Estructura
+
+```
+app/
+  page.tsx               # Tienda (server component)
+  admin/                 # Panel de administración (login + CRUD)
+  globals.css            # Tokens de diseño (pino, ámbar, kraft) y animaciones
+components/
+  store/                 # Header, hero, pizarra, menú, carrito, pedido, footer
+  admin/                 # Panel con formularios y subida de fotos
+lib/
+  supabase/              # Clientes (servidor/navegador) y consultas
+  types.ts               # Tipos compartidos
+  whatsapp.ts            # Armado del mensaje y enlace wa.me
+supabase/schema.sql      # Tablas, RLS y bucket de imágenes
+```

@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent skills (instaladas localmente)
+.agents/
+skills-lock.json
+
+# perf profiles de Turbopack
+.next-profiles/
+
+# logs
+*.log
+
+# editores
+.vscode/
+.idea/

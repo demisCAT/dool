@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
+@theme {
+  --color-pine: #1e3b32;
+  --color-pine-deep: #14291f;
+  --color-butter: #e8a33d;
+  --color-butter-deep: #c9851f;
+  --color-cream: #f7f0e4;
+  --color-paper: #fcf7ed;
+  --color-ink: #2b2118;
+  --color-chalk: #efe7d8;
+
+  --font-display: var(--font-gloock);
+  --font-body: var(--font-karla);
+  --font-hand: var(--font-caveat);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+/* Papel kraft con grano sutil */
+.paper-grain {
+  background-image: radial-gradient(
+      circle at 18% 12%,
+      rgba(255, 255, 255, 0.55),
+      transparent 42%
+    ),
+    radial-gradient(circle at 82% 88%, rgba(43, 33, 24, 0.04), transparent 46%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(43, 33, 24, 0.016) 0 1px,
+      transparent 1px 3px
+    );
+}
+
+/* Pizarra de cocina */
+.chalkboard {
+  background-color: var(--color-pine);
+  background-image: radial-gradient(
+      ellipse at 30% 20%,
+      rgba(255, 255, 255, 0.06),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 80% 90%,
+      rgba(0, 0, 0, 0.22),
+      transparent 60%
+    );
+}
+
+.chalkboard-frame {
+  border: 10px solid #6b4a2f;
+  box-shadow: inset 0 0 0 2px rgba(239, 231, 216, 0.22),
+    0 14px 34px rgba(20, 41, 31, 0.28);
+}
+
+/* Subrayado de tiza dibujado a mano */
+.chalk-underline {
+  position: relative;
+}
+.chalk-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.18em;
+  height: 0.09em;
+  border-radius: 999px;
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0 9px,
+    transparent 9px 15px
+  );
+}
+
+/* Cinta adhesiva sobre las fotos */
+.tape {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 92px;
+  height: 26px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: rgba(232, 163, 61, 0.6);
+  border-left: 1px dashed rgba(43, 33, 24, 0.12);
+  border-right: 1px dashed rgba(43, 33, 24, 0.12);
+  box-shadow: 0 2px 4px rgba(43, 33, 24, 0.1);
+  backdrop-filter: blur(1px);
+}
+
+/* Animación de tiza al cargar la pizarra */
+@keyframes chalk-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chalk-item {
+  opacity: 0;
+  animation: chalk-in 0.5s ease-out forwards;
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pop {
+  animation: badge-pop 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chalk-item {
+    animation: none;
+    opacity: 1;
+  }
+  .badge-pop {
+    animation: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
 }
