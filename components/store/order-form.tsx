@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart } from "./cart-provider";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { formatPrice } from "@/lib/format";
+import { PhoneContact } from "./phone-contact";
 import type { OrderForm } from "@/lib/types";
 
 function today(): string {
@@ -209,6 +210,10 @@ export function OrderForm() {
             </button>
             <p className="text-center text-sm text-ink/55">
               Se abrirá WhatsApp con tu pedido listo para enviar.
+            </p>
+            <p className="flex flex-wrap items-center justify-center gap-x-2 text-center text-sm text-ink/55">
+              ¿No tienes WhatsApp? Llámanos y pide por teléfono:
+              <PhoneContact />
             </p>
           </form>
         </div>

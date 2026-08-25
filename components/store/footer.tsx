@@ -1,3 +1,5 @@
+import { PhoneContact } from "./phone-contact";
+
 export function Footer() {
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
 
@@ -9,8 +11,9 @@ export function Footer() {
           hecho en casa, todos los días
         </p>
         {phone && (
-          <p className="text-sm text-chalk/60">
-            WhatsApp: {phone.replace(/(\d)(\d{4})(\d{4})$/, "$1 $2 $3")}
+          <p className="flex flex-wrap items-center justify-center gap-x-2 text-sm text-chalk/60">
+            Pedidos por teléfono:
+            <PhoneContact tone="dark" />
           </p>
         )}
         <a

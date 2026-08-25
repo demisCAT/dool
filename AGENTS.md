@@ -42,6 +42,7 @@ Tienda de comida casera para llevar (Chile, precios CLP). Cliente elige platos, 
 - Mantener genérico el mensaje de error del login ("Credenciales incorrectas") para no revelar si el correo existe.
 - Subida de fotos: validar MIME `image/*` y tamaño (5 MB) antes de subir; el path se genera con `crypto.randomUUID()` (nunca usar input del usuario en el path); el bucket `products` es público por diseño — no guardar ahí nada privado.
 - `window.open` del enlace wa.me debe conservar `noopener,noreferrer` (anti-tabnabbing).
+- Número de teléfono protegido contra bots: nunca renderizar dígitos en HTML estático; usar `components/store/phone-contact.tsx` (revela el número en el navegador al hacer clic).
 - React escapa el output por defecto; no usar `dangerouslySetInnerHTML` con datos de productos/pedidos.
 - Verificar dependencias con `npm audit` al actualizar paquetes.
 
