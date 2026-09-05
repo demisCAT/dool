@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Category, Product } from "@/lib/types";
 import { useCart } from "./cart-provider";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDays } from "@/lib/format";
 
 function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
@@ -40,6 +40,11 @@ function ProductCard({ product }: { product: Product }) {
         <h3 className="font-display text-xl leading-snug text-pine">
           {product.name}
         </h3>
+        {product.days && product.days.length > 0 && (
+          <p className="font-hand text-lg text-butter-deep">
+            Disponible: {formatDays(product.days)}
+          </p>
+        )}
         {product.description && (
           <p className="text-sm text-ink/65">{product.description}</p>
         )}

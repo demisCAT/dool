@@ -3,7 +3,7 @@
 import { useRef, useState, useActionState } from "react";
 import Link from "next/link";
 import type { Category, Product } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDays, WEEK_DAYS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -22,6 +22,7 @@ const EMPTY_PRODUCT = {
   price: "",
   category_id: "",
   image_url: "",
+  days: [] as number[],
   active: true,
   position: "0",
 };
@@ -111,6 +112,7 @@ export function AdminPanel({
       price: String(p.price),
       category_id: p.category_id,
       image_url: p.image_url ?? "",
+      days: p.days ?? [],
       active: p.active,
       position: String(p.position),
     });
@@ -337,6 +339,44 @@ function ProductForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-pine">Días de la semana</span>
+          <p className="text-sm text-ink/55">
+            Indica en qué días se ofrece este plato.
+          </p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {WEEK_DAYS.map((day, i) => {
+              const checked = product.days.includes(i);
+              const toggle = (on: boolean) =>
+                set({
+                  days: on
+                    ? [...product.days, i].sort((a, b) => a - b)
+                    : product.days.filter((d) => d !== i),
+                });
+              return (
+                <label
+                  key={day}
+                  className={`flex h-10 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-sm font-bold transition-colors ${
+                    checked
+                      ? "border-pine bg-pine text-chalk"
+                      : "border-ink/15 text-ink/70 hover:border-pine/50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    name="days"
+                    value={i}
+                    checked={checked}
+                    onChange={(e) => toggle(e.target.checked)}
+                    className="sr-only"
+                  />
+                  {day.slice(0, 3)}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-pine">Fotografía</span>
           <div className="flex items-center gap-4">
             <input
@@ -474,7 +514,15 @@ function ProductList({
                   </span>
                 )}
               </p>
-              <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
+              <p className="text-sm text-ink/55">
+                {catName(p.category_id)}
+                {p.days && p.days.length > 0 && (
+                  <span className="text-butter-deep">
+                    {" "}
+                    · {formatDays(p.days)}
+                  </span>
+                )}
+              </p>
             </div>
             <span className="font-display text-lg text-butter-deep">
               {formatPrice(p.price)}

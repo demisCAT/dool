@@ -62,6 +62,10 @@ export async function saveProduct(
   const imageUrl = String(formData.get("image_url") ?? "").trim();
   const active = formData.get("active") === "on";
   const position = Number(formData.get("position") ?? 0);
+  const days = formData
+    .getAll("days")
+    .map((d) => Number(d))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
 
   if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
     return { error: "Completa nombre, categoría y un precio válido." };
@@ -75,6 +79,7 @@ export async function saveProduct(
       price,
       category_id: categoryId,
       image_url: imageUrl || null,
+      days,
       active,
       position,
     };

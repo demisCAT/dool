@@ -18,6 +18,7 @@ create table if not exists public.products (
   description text not null default '',
   price integer not null check (price >= 0),
   image_url text,
+  days integer[] not null default '{}',
   active boolean not null default true,
   position integer not null default 0,
   created_at timestamptz not null default now()

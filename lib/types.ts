@@ -14,6 +14,7 @@ export interface Product {
   image_url: string | null;
   active: boolean;
   position: number;
+  days: number[];
 }
 
 export interface CartItem {
