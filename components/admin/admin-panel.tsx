@@ -208,7 +208,6 @@ export function AdminPanel({
             <CategoryList
               categories={orderedCategories}
               products={products}
-              onAddProducts={() => setTab("productos")}
             />
           )}
         </div>
@@ -555,11 +554,9 @@ function CategoryForm({
 function CategoryList({
   categories,
   products,
-  onAddProducts,
 }: {
   categories: Category[];
   products: Product[];
-  onAddProducts: () => void;
 }) {
   return (
     <section className="mt-8">
@@ -583,28 +580,23 @@ function CategoryList({
                   </p>
                 </div>
                 {count === 0 ? (
-                  <button
-                    type="button"
-                    onClick={onAddProducts}
-                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
-                  >
-                    Agregar productos
-                  </button>
-                ) : (
                   <form action={deleteCategory.bind(null, c.id)}>
                     <button
                       type="submit"
-                      disabled={count > 0}
-                      title={
-                        count > 0
-                          ? "Mueve o borra sus productos primero"
-                          : undefined
-                      }
-                      className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:text-ink/70"
+                      className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
                     >
                       Borrar
                     </button>
                   </form>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Mueve o borra sus productos primero"
+                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 cursor-not-allowed opacity-40"
+                  >
+                    Borrar
+                  </button>
                 )}
               </li>
             );

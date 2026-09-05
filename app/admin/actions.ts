@@ -160,6 +160,17 @@ export async function saveCategory(
 export async function deleteCategory(id: string) {
   try {
     const supabase = await requireUser();
+    const { data: usedBy, error: countError } = await supabase
+      .from("products")
+      .select("id")
+      .eq("category_id", id)
+      .limit(1);
+    if (countError) throw countError;
+    if (usedBy && usedBy.length > 0) {
+      revalidatePath("/");
+      revalidatePath("/admin");
+      return;
+    }
     await supabase.from("categories").delete().eq("id", id);
   } catch {
     // silencioso
