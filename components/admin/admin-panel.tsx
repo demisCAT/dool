@@ -489,17 +489,37 @@ function ProductList({
         </p>
       ) : (
         <>
-          <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_5rem_3rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+          <div className="mt-4 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+            <span className="text-center">Disponible</span>
             <span>Foto</span>
             <span>Producto</span>
             <span className="text-right">Precio</span>
             <span className="text-center">Acomp.</span>
-            <span className="text-center">Disponible</span>
             <span className="text-left">Acciones</span>
           </div>
           <ul className="divide-y divide-ink/10">
             {products.map((p) => (
-              <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_5rem_3rem_10rem] items-center gap-4 py-3">
+              <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
+                <form
+                  className="flex justify-center"
+                  action={toggleProductActive.bind(null, p.id, !p.active)}
+                >
+                  <button
+                    type="submit"
+                    role="switch"
+                    aria-checked={p.active}
+                    title={p.active ? "Desactivar plato" : "Activar plato"}
+                    className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
+                      p.active ? "bg-pine" : "bg-ink/25"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
+                        p.active ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </form>
                 {p.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -522,26 +542,6 @@ function ProductList({
                 <span className="text-center text-sm font-bold text-ink/70">
                   {p.with_side ? "Sí" : "—"}
                 </span>
-                <form
-                  className="flex justify-center"
-                  action={toggleProductActive.bind(null, p.id, !p.active)}
-                >
-                  <button
-                    type="submit"
-                    role="switch"
-                    aria-checked={p.active}
-                    title={p.active ? "Desactivar plato" : "Activar plato"}
-                    className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
-                      p.active ? "bg-pine" : "bg-ink/25"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
-                        p.active ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </form>
                 <div className="flex justify-start gap-2">
                   <button
                     type="button"
