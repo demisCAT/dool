@@ -452,11 +452,11 @@ function ProductList({
         Productos ({products.length})
       </h2>
       <div className="mt-4 hidden items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:flex">
-        <span className="w-16">Foto</span>
+        <span className="w-16 flex-shrink-0">Foto</span>
         <span className="min-w-0 flex-1">Producto</span>
-        <span className="w-24 text-right">Precio</span>
-        <span className="w-12 text-center">Disponible</span>
-        <span className="w-40 text-right">Acciones</span>
+        <span className="w-28 flex-shrink-0 text-right">Precio</span>
+        <span className="w-12 flex-shrink-0 text-center">Disponible</span>
+        <span className="w-40 flex-shrink-0 text-right">Acciones</span>
       </div>
       <ul className="divide-y divide-ink/10">
         {products.map((p) => (
@@ -466,10 +466,10 @@ function ProductList({
               <img
                 src={p.image_url}
                 alt=""
-                className="h-12 w-16 rounded-md object-cover"
+                className="h-12 w-16 flex-shrink-0 rounded-md object-cover"
               />
             ) : (
-              <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
+              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-md bg-pine/10">
                 <span className="font-display text-[10px] text-pine/40">DN</span>
               </div>
             )}
@@ -477,10 +477,13 @@ function ProductList({
               <p className="truncate font-semibold text-pine">{p.name}</p>
               <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
             </div>
-            <span className="font-display text-lg text-butter-deep">
+            <span className="w-28 flex-shrink-0 text-right font-display text-lg text-butter-deep">
               {formatPrice(p.price)}
             </span>
-            <form action={toggleProductActive.bind(null, p.id, !p.active)}>
+            <form
+              className="w-12 flex-shrink-0 flex justify-center"
+              action={toggleProductActive.bind(null, p.id, !p.active)}
+            >
               <button
                 type="submit"
                 role="switch"
@@ -497,7 +500,7 @@ function ProductList({
                 />
               </button>
             </form>
-            <div className="flex gap-2">
+            <div className="flex w-40 flex-shrink-0 justify-end gap-2">
               <button
                 type="button"
                 onClick={() => onEdit(p)}
