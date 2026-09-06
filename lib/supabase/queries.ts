@@ -15,7 +15,7 @@ export async function getStoreData(): Promise<{
     supabase
       .from("products")
       .select(
-        "id, category_id, name, description, price, image_url, active, position"
+        "id, category_id, name, description, price, image_url, active, with_side, position"
       )
       .eq("active", true)
       .order("position"),

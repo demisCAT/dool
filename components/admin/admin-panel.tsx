@@ -24,6 +24,7 @@ const EMPTY_PRODUCT = {
   category_id: "",
   image_url: "",
   active: true,
+  with_side: false,
   position: "0",
 };
 
@@ -113,6 +114,7 @@ export function AdminPanel({
       category_id: p.category_id,
       image_url: p.image_url ?? "",
       active: p.active,
+      with_side: p.with_side ?? false,
       position: String(p.position),
     });
     setUploadError(null);
@@ -378,6 +380,17 @@ function ProductForm({
           )}
           <input type="hidden" name="image_url" value={product.image_url} />
         </div>
+
+        <label className="flex w-fit items-center gap-2 text-sm font-bold text-pine">
+          <input
+            type="checkbox"
+            name="with_side"
+            checked={product.with_side}
+            onChange={(e) => set({ with_side: e.target.checked })}
+            className="h-4 w-4 accent-[#1e3b32]"
+          />
+          Va con acompañamiento
+        </label>
 
         <label className="flex w-fit items-center gap-2 text-sm font-bold text-pine">
           <input

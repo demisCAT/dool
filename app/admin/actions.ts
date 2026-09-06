@@ -61,6 +61,7 @@ export async function saveProduct(
   const categoryId = String(formData.get("category_id") ?? "");
   const imageUrl = String(formData.get("image_url") ?? "").trim();
   const active = formData.get("active") === "on";
+  const withSide = formData.get("with_side") === "on";
   const position = Number(formData.get("position") ?? 0);
 
   if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
@@ -76,6 +77,7 @@ export async function saveProduct(
       category_id: categoryId,
       image_url: imageUrl || null,
       active,
+      with_side: withSide,
       position,
     };
 

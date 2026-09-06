@@ -13,6 +13,7 @@ export interface Product {
   price: number;
   image_url: string | null;
   active: boolean;
+  with_side: boolean;
   position: number;
 }
 
