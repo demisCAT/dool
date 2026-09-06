@@ -451,37 +451,37 @@ function ProductList({
       <h2 className="font-display text-2xl text-pine">
         Productos ({products.length})
       </h2>
-      <div className="mt-4 hidden items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:flex">
-        <span className="w-16 flex-shrink-0">Foto</span>
-        <span className="min-w-0 flex-1">Producto</span>
-        <span className="w-28 flex-shrink-0 text-right">Precio</span>
-        <span className="w-12 flex-shrink-0 text-center">Disponible</span>
-        <span className="w-40 flex-shrink-0 text-right">Acciones</span>
+      <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+        <span>Foto</span>
+        <span>Producto</span>
+        <span className="text-right">Precio</span>
+        <span className="text-center">Disponible</span>
+        <span className="text-right">Acciones</span>
       </div>
       <ul className="divide-y divide-ink/10">
         {products.map((p) => (
-          <li key={p.id} className="flex items-center gap-4 py-3">
+          <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 py-3">
             {p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={p.image_url}
                 alt=""
-                className="h-12 w-16 flex-shrink-0 rounded-md object-cover"
+                className="h-12 w-16 rounded-md object-cover"
               />
             ) : (
-              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-md bg-pine/10">
+              <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
                 <span className="font-display text-[10px] text-pine/40">DN</span>
               </div>
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="truncate font-semibold text-pine">{p.name}</p>
               <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
             </div>
-            <span className="w-28 flex-shrink-0 text-right font-display text-lg text-butter-deep">
+            <span className="text-right font-display text-lg text-butter-deep">
               {formatPrice(p.price)}
             </span>
             <form
-              className="w-12 flex-shrink-0 flex justify-center"
+              className="flex justify-center"
               action={toggleProductActive.bind(null, p.id, !p.active)}
             >
               <button
@@ -500,7 +500,7 @@ function ProductList({
                 />
               </button>
             </form>
-            <div className="flex w-40 flex-shrink-0 justify-end gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => onEdit(p)}
