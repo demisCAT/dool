@@ -39,6 +39,7 @@ export function AdminPanel({
 }) {
   const [tab, setTab] = useState<Tab>("productos");
   const [product, setProduct] = useState(EMPTY_PRODUCT);
+  const [showForm, setShowForm] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function AdminPanel({
     setPrevOk((s) => ({ ...s, product: productState.ok ?? false }));
     if (productState.ok) {
       setProduct(EMPTY_PRODUCT);
+      setShowForm(false);
       setFormKey((k) => k + 1);
     }
   }
@@ -118,6 +120,13 @@ export function AdminPanel({
       position: String(p.position),
     });
     setUploadError(null);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function startCreate() {
+    setProduct(EMPTY_PRODUCT);
+    setShowForm((v) => !v);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -183,35 +192,43 @@ export function AdminPanel({
 
         <div className="rounded-b-lg rounded-tr-lg bg-paper p-6 shadow-md shadow-ink/8">
           {tab === "productos" ? (
-            <ProductForm
-              key={`p-${formKey}`}
-              product={product}
-              setProduct={setProduct}
-              categories={orderedCategories}
-              action={productAction}
-              pending={productPending}
-              state={productState}
-              uploading={uploading}
-              uploadError={uploadError}
-              fileRef={fileRef}
-              onFile={handleFile}
-            />
+            <>
+              {showForm && (
+                <ProductForm
+                  key={`p-${formKey}`}
+                  product={product}
+                  setProduct={setProduct}
+                  categories={orderedCategories}
+                  action={productAction}
+                  pending={productPending}
+                  state={productState}
+                  uploading={uploading}
+                  uploadError={uploadError}
+                  fileRef={fileRef}
+                  onFile={handleFile}
+                  onCancel={() => setShowForm(false)}
+                />
+              )}
+              <ProductList
+                products={products}
+                categories={orderedCategories}
+                onEdit={startEdit}
+                onAdd={startCreate}
+              />
+            </>
           ) : (
-            <CategoryForm
-              key={`c-${formKey}`}
-              action={categoryAction}
-              pending={categoryPending}
-              state={categoryState}
-            />
-          )}
-
-          {tab === "productos" ? (
-            <ProductList products={products} categories={orderedCategories} onEdit={startEdit} />
-          ) : (
-            <CategoryList
-              categories={orderedCategories}
-              products={products}
-            />
+            <>
+              <CategoryForm
+                key={`c-${formKey}`}
+                action={categoryAction}
+                pending={categoryPending}
+                state={categoryState}
+              />
+              <CategoryList
+                categories={orderedCategories}
+                products={products}
+              />
+            </>
           )}
         </div>
       </main>
@@ -230,6 +247,7 @@ function ProductForm({
   uploadError,
   fileRef,
   onFile,
+  onCancel,
 }: {
   product: typeof EMPTY_PRODUCT;
   setProduct: React.Dispatch<React.SetStateAction<typeof EMPTY_PRODUCT>>;
@@ -241,6 +259,7 @@ function ProductForm({
   uploadError: string | null;
   fileRef: React.RefObject<HTMLInputElement | null>;
   onFile: (file: File | undefined) => void;
+  onCancel: () => void;
 }) {
   const isEditing = Boolean(product.id);
   const set = (patch: Partial<typeof EMPTY_PRODUCT>) =>
@@ -422,17 +441,13 @@ function ProductForm({
           >
             {pending ? "Guardando…" : isEditing ? "Guardar cambios" : "Crear producto"}
           </button>
-          {isEditing && (
-            <button
-              type="button"
-              onClick={() => {
-                setProduct(EMPTY_PRODUCT);
-              }}
-              className="inline-flex h-11 items-center rounded-full border-2 border-ink/15 px-6 font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
-            >
-              Cancelar
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-11 items-center rounded-full border-2 border-ink/15 px-6 font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+          >
+            Cancelar
+          </button>
         </div>
       </form>
     </section>
@@ -443,96 +458,112 @@ function ProductList({
   products,
   categories,
   onEdit,
+  onAdd,
 }: {
   products: Product[];
   categories: Category[];
   onEdit: (p: Product) => void;
+  onAdd: () => void;
 }) {
   const catName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? "Sin categoría";
 
-  if (products.length === 0) {
-    return (
-      <p className="mt-8 text-center text-ink/55">
-        Aún no hay productos. Crea el primero arriba.
-      </p>
-    );
-  }
-
   return (
     <section className="mt-8">
-      <h2 className="font-display text-2xl text-pine">
-        Productos ({products.length})
-      </h2>
-      <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
-        <span>Foto</span>
-        <span>Producto</span>
-        <span className="text-right">Precio</span>
-        <span className="text-center">Disponible</span>
-        <span className="text-left">Acciones</span>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl text-pine">
+          Productos ({products.length})
+        </h2>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex h-10 items-center rounded-full bg-pine px-5 text-sm font-bold text-chalk transition-colors hover:bg-pine-deep"
+        >
+          Nuevo producto
+        </button>
       </div>
-      <ul className="divide-y divide-ink/10">
-        {products.map((p) => (
-          <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 py-3">
-            {p.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={p.image_url}
-                alt=""
-                className="h-12 w-16 rounded-md object-cover"
-              />
-            ) : (
-              <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
-                <span className="font-display text-[10px] text-pine/40">DN</span>
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-pine">{p.name}</p>
-              <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
-            </div>
-            <span className="text-right font-display text-lg text-butter-deep">
-              {formatPrice(p.price)}
-            </span>
-            <form
-              className="flex justify-center"
-              action={toggleProductActive.bind(null, p.id, !p.active)}
-            >
-              <button
-                type="submit"
-                role="switch"
-                aria-checked={p.active}
-                title={p.active ? "Desactivar plato" : "Activar plato"}
-                className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
-                  p.active ? "bg-pine" : "bg-ink/25"
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
-                    p.active ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </form>
-            <div className="flex justify-start gap-2">
-              <button
-                type="button"
-                onClick={() => onEdit(p)}
-                className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
-              >
-                Editar
-              </button>
-              <form action={deleteProduct.bind(null, p.id)}>
-                <button
-                  type="submit"
-                  className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
+
+      {products.length === 0 ? (
+        <p className="mt-8 text-center text-ink/55">
+          Aún no hay productos. Crea el primero con el botón &quot;Nuevo producto&quot;.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_5rem_3rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+            <span>Foto</span>
+            <span>Producto</span>
+            <span className="text-right">Precio</span>
+            <span className="text-center">Acomp.</span>
+            <span className="text-center">Disponible</span>
+            <span className="text-left">Acciones</span>
+          </div>
+          <ul className="divide-y divide-ink/10">
+            {products.map((p) => (
+              <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_5rem_3rem_10rem] items-center gap-4 py-3">
+                {p.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.image_url}
+                    alt=""
+                    className="h-12 w-16 rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
+                    <span className="font-display text-[10px] text-pine/40">DN</span>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-pine">{p.name}</p>
+                  <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
+                </div>
+                <span className="text-right font-display text-lg text-butter-deep">
+                  {formatPrice(p.price)}
+                </span>
+                <span className="text-center text-sm font-bold text-ink/70">
+                  {p.with_side ? "Sí" : "—"}
+                </span>
+                <form
+                  className="flex justify-center"
+                  action={toggleProductActive.bind(null, p.id, !p.active)}
                 >
-                  Borrar
-                </button>
-              </form>
-            </div>
-          </li>
-        ))}
-      </ul>
+                  <button
+                    type="submit"
+                    role="switch"
+                    aria-checked={p.active}
+                    title={p.active ? "Desactivar plato" : "Activar plato"}
+                    className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
+                      p.active ? "bg-pine" : "bg-ink/25"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
+                        p.active ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </form>
+                <div className="flex justify-start gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(p)}
+                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+                  >
+                    Editar
+                  </button>
+                  <form action={deleteProduct.bind(null, p.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
+                    >
+                      Borrar
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }
