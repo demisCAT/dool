@@ -451,7 +451,14 @@ function ProductList({
       <h2 className="font-display text-2xl text-pine">
         Productos ({products.length})
       </h2>
-      <ul className="mt-4 divide-y divide-ink/10">
+      <div className="mt-4 hidden items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:flex">
+        <span className="w-16">Foto</span>
+        <span className="min-w-0 flex-1">Producto</span>
+        <span className="w-24 text-right">Precio</span>
+        <span className="w-12 text-center">Disponible</span>
+        <span className="w-40 text-right">Acciones</span>
+      </div>
+      <ul className="divide-y divide-ink/10">
         {products.map((p) => (
           <li key={p.id} className="flex items-center gap-4 py-3">
             {p.image_url ? (
