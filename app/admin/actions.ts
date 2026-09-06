@@ -62,10 +62,6 @@ export async function saveProduct(
   const imageUrl = String(formData.get("image_url") ?? "").trim();
   const active = formData.get("active") === "on";
   const position = Number(formData.get("position") ?? 0);
-  const days = formData
-    .getAll("days")
-    .map((d) => Number(d))
-    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
 
   if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
     return { error: "Completa nombre, categoría y un precio válido." };
@@ -79,7 +75,6 @@ export async function saveProduct(
       price,
       category_id: categoryId,
       image_url: imageUrl || null,
-      days,
       active,
       position,
     };
@@ -121,6 +116,21 @@ export async function deleteProduct(id: string) {
         await supabase.storage.from("products").remove([path]);
       }
     }
+  } catch {
+    // silencioso: revalidate deja ver el estado real
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function toggleProductActive(id: string, active: boolean) {
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase
+      .from("products")
+      .update({ active })
+      .eq("id", id);
+    if (error) throw error;
   } catch {
     // silencioso: revalidate deja ver el estado real
   }

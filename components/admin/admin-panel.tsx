@@ -3,11 +3,12 @@
 import { useRef, useState, useActionState } from "react";
 import Link from "next/link";
 import type { Category, Product } from "@/lib/types";
-import { formatPrice, formatDays, WEEK_DAYS } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
   deleteProduct,
+  toggleProductActive,
   saveCategory,
   deleteCategory,
   signOut,
@@ -22,7 +23,6 @@ const EMPTY_PRODUCT = {
   price: "",
   category_id: "",
   image_url: "",
-  days: [] as number[],
   active: true,
   position: "0",
 };
@@ -112,7 +112,6 @@ export function AdminPanel({
       price: String(p.price),
       category_id: p.category_id,
       image_url: p.image_url ?? "",
-      days: p.days ?? [],
       active: p.active,
       position: String(p.position),
     });
@@ -339,44 +338,6 @@ function ProductForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-bold text-pine">Días de la semana</span>
-          <p className="text-sm text-ink/55">
-            Indica en qué días se ofrece este plato.
-          </p>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {WEEK_DAYS.map((day, i) => {
-              const checked = product.days.includes(i);
-              const toggle = (on: boolean) =>
-                set({
-                  days: on
-                    ? [...product.days, i].sort((a, b) => a - b)
-                    : product.days.filter((d) => d !== i),
-                });
-              return (
-                <label
-                  key={day}
-                  className={`flex h-10 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-sm font-bold transition-colors ${
-                    checked
-                      ? "border-pine bg-pine text-chalk"
-                      : "border-ink/15 text-ink/70 hover:border-pine/50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    name="days"
-                    value={i}
-                    checked={checked}
-                    onChange={(e) => toggle(e.target.checked)}
-                    className="sr-only"
-                  />
-                  {day.slice(0, 3)}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-pine">Fotografía</span>
           <div className="flex items-center gap-4">
             <input
@@ -506,27 +467,29 @@ function ProductList({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-pine">
-                {p.name}
-                {!p.active && (
-                  <span className="ml-2 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-bold text-ink/60">
-                    oculto
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-ink/55">
-                {catName(p.category_id)}
-                {p.days && p.days.length > 0 && (
-                  <span className="text-butter-deep">
-                    {" "}
-                    · {formatDays(p.days)}
-                  </span>
-                )}
-              </p>
+              <p className="truncate font-semibold text-pine">{p.name}</p>
+              <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
             </div>
             <span className="font-display text-lg text-butter-deep">
               {formatPrice(p.price)}
             </span>
+            <form action={toggleProductActive.bind(null, p.id, !p.active)}>
+              <button
+                type="submit"
+                role="switch"
+                aria-checked={p.active}
+                title={p.active ? "Desactivar plato" : "Activar plato"}
+                className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
+                  p.active ? "bg-pine" : "bg-ink/25"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
+                    p.active ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </form>
             <div className="flex gap-2">
               <button
                 type="button"
