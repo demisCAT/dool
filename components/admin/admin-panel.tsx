@@ -451,16 +451,16 @@ function ProductList({
       <h2 className="font-display text-2xl text-pine">
         Productos ({products.length})
       </h2>
-      <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_auto] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+      <div className="mt-4 hidden grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
         <span>Foto</span>
         <span>Producto</span>
         <span className="text-right">Precio</span>
         <span className="text-center">Disponible</span>
-        <span>Acciones</span>
+        <span className="text-left">Acciones</span>
       </div>
       <ul className="divide-y divide-ink/10">
         {products.map((p) => (
-          <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_auto] items-center gap-4 py-3">
+          <li key={p.id} className="grid grid-cols-[4rem_minmax(0,1fr)_7rem_3rem_10rem] items-center gap-4 py-3">
             {p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
