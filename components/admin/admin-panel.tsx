@@ -490,7 +490,7 @@ function ProductList({
       ) : (
         <>
           <div className="mt-4 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
-            <span className="text-center">Disponible</span>
+            <span className="text-center">Disp.</span>
             <span>Foto</span>
             <span>Producto</span>
             <span className="text-right">Precio</span>
