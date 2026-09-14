@@ -9,7 +9,7 @@ import type {
   Order,
   RetentionSettings,
 } from "@/lib/types";
-import { formatPrice, formatDate } from "@/lib/format";
+import { formatPrice, formatDate, toDateKey, todayKey } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -324,6 +324,7 @@ export function AdminPanel({
             </>
           ) : tab === "pedidos" ? (
             <>
+              <OrderList orders={orders} />
               <RetentionForm
                 key={`r-${formKey}`}
                 retention={retention}
@@ -332,7 +333,6 @@ export function AdminPanel({
                 pending={settingsPending}
                 state={settingsState}
               />
-              <OrderList orders={orders} />
             </>
           ) : tab === "acompanamientos" ? (
             <>
@@ -1088,20 +1088,55 @@ function RetentionForm({
 }
 
 function OrderList({ orders }: { orders: Order[] }) {
+  const [orderDate, setOrderDate] = useState(todayKey());
+
+  const filtered = orderDate
+    ? orders.filter((o) => toDateKey(o.created_at) === orderDate)
+    : orders;
+
   return (
     <section className="mt-8">
-      <h2 className="font-display text-2xl text-pine">
-        Pedidos ({orders.length})
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="font-display text-2xl text-pine">
+          Pedidos ({filtered.length})
+        </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="order-date" className="text-sm font-bold text-pine">
+            Fecha
+          </label>
+          <input
+            id="order-date"
+            type="date"
+            value={orderDate}
+            onChange={(e) => setOrderDate(e.target.value)}
+            className="h-10 rounded-lg border-2 border-ink/15 bg-cream px-3 text-sm text-ink focus:border-butter-deep focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setOrderDate(todayKey())}
+            className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+          >
+            Hoy
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderDate("")}
+            className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+          >
+            Todos
+          </button>
+        </div>
+      </div>
 
-      {orders.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="mt-8 text-center text-ink/55">
-          Aún no hay pedidos. Cuando un cliente envíe un pedido por WhatsApp,
-          aparecerá aquí.
+          {orderDate
+            ? "No hay pedidos para esta fecha."
+            : "Aún no hay pedidos. Cuando un cliente envíe un pedido por WhatsApp, aparecerá aquí."}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-ink/10">
-          {orders.map((o) => (
+          {filtered.map((o) => (
             <li key={o.id} className="flex flex-col gap-3 py-4">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <span
