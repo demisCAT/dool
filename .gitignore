@@ -36,6 +36,9 @@ yarn-error.log*
 # memory
 MEMORIA.md
 
+# contenido local (fotos del negocio, se suben desde el admin)
+/images
+
 # vercel
 .vercel
 

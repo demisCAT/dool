@@ -53,11 +53,33 @@ export default async function AdminPage() {
     .select("id, name, description, active, position")
     .order("position");
 
+  await supabase.rpc("cleanup_expired_orders");
+
+  const { data: allOrders } = await supabase
+    .from("orders")
+    .select("id, name, phone, delivery_date, note, items, total, status, created_at")
+    .order("created_at", { ascending: false });
+
+  const { data: settingsRows } = await supabase
+    .from("settings")
+    .select("key, value");
+
+  const settingsMap = Object.fromEntries(
+    (settingsRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+  );
+
+  const settings = {
+    pendingDays: Number(settingsMap["order_retention_pending_days"] ?? 5),
+    receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
+  };
+
   return (
     <AdminPanel
       categories={categories}
       products={allProducts ?? []}
       sides={allSides ?? []}
+      orders={allOrders ?? []}
+      settings={settings}
       adminEmail={user.email ?? ""}
     />
   );

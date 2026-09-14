@@ -37,3 +37,22 @@ export interface OrderForm {
   deliveryDate: string;
   note: string;
 }
+
+export type OrderStatus = "pendiente" | "recibido";
+
+export interface Order {
+  id: string;
+  name: string;
+  phone: string;
+  delivery_date: string;
+  note: string;
+  items: CartItem[];
+  total: number;
+  status: OrderStatus;
+  created_at: string;
+}
+
+export interface RetentionSettings {
+  pendingDays: number;
+  receivedDays: number;
+}

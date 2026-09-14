@@ -2,8 +2,14 @@
 
 import { useRef, useState, useActionState } from "react";
 import Link from "next/link";
-import type { Category, Product, Side } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import type {
+  Category,
+  Product,
+  Side,
+  Order,
+  RetentionSettings,
+} from "@/lib/types";
+import { formatPrice, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -14,10 +20,13 @@ import {
   saveSide,
   deleteSide,
   toggleSideActive,
+  markOrderReceived,
+  deleteOrder,
+  saveSettings,
   signOut,
 } from "@/app/admin/actions";
 
-type Tab = "productos" | "categorias" | "acompanamientos";
+type Tab = "productos" | "pedidos" | "categorias" | "acompanamientos";
 
 const EMPTY_PRODUCT = {
   id: "",
@@ -43,11 +52,15 @@ export function AdminPanel({
   categories,
   products,
   sides,
+  orders,
+  settings,
   adminEmail,
 }: {
   categories: Category[];
   products: Product[];
   sides: Side[];
+  orders: Order[];
+  settings: RetentionSettings;
   adminEmail: string;
 }) {
   const [tab, setTab] = useState<Tab>("productos");
@@ -61,6 +74,11 @@ export function AdminPanel({
   const [side, setSide] = useState(EMPTY_SIDE);
   const [showSideForm, setShowSideForm] = useState(false);
 
+  const [retention, setRetention] = useState({
+    pendingDays: String(settings.pendingDays),
+    receivedDays: String(settings.receivedDays),
+  });
+
   const [productState, productAction, productPending] = useActionState(
     saveProduct,
     { error: null, ok: false }
@@ -73,11 +91,16 @@ export function AdminPanel({
     error: null,
     ok: false,
   });
+  const [settingsState, settingsAction, settingsPending] = useActionState(
+    saveSettings,
+    { error: null, ok: false }
+  );
 
   const [prevOk, setPrevOk] = useState({
     product: false,
     category: false,
     side: false,
+    settings: false,
   });
 
   if (productState.ok !== prevOk.product) {
@@ -101,6 +124,13 @@ export function AdminPanel({
     if (sideState.ok) {
       setSide(EMPTY_SIDE);
       setShowSideForm(false);
+      setFormKey((k) => k + 1);
+    }
+  }
+
+  if (settingsState.ok !== prevOk.settings) {
+    setPrevOk((s) => ({ ...s, settings: settingsState.ok ?? false }));
+    if (settingsState.ok) {
       setFormKey((k) => k + 1);
     }
   }
@@ -230,6 +260,18 @@ export function AdminPanel({
           </button>
           <button
             role="tab"
+            aria-selected={tab === "pedidos"}
+            onClick={() => setTab("pedidos")}
+            className={`rounded-t-lg px-5 py-2.5 font-bold transition-colors ${
+              tab === "pedidos"
+                ? "bg-paper text-pine shadow-sm"
+                : "text-ink/50 hover:text-pine"
+            }`}
+          >
+            Pedidos
+          </button>
+          <button
+            role="tab"
             aria-selected={tab === "categorias"}
             onClick={() => setTab("categorias")}
             className={`rounded-t-lg px-5 py-2.5 font-bold transition-colors ${
@@ -279,6 +321,18 @@ export function AdminPanel({
                 onEdit={startEdit}
                 onAdd={startCreate}
               />
+            </>
+          ) : tab === "pedidos" ? (
+            <>
+              <RetentionForm
+                key={`r-${formKey}`}
+                retention={retention}
+                setRetention={setRetention}
+                action={settingsAction}
+                pending={settingsPending}
+                state={settingsState}
+              />
+              <OrderList orders={orders} />
             </>
           ) : tab === "acompanamientos" ? (
             <>
@@ -928,6 +982,183 @@ function SideList({
                   Editar
                 </button>
                 <form action={deleteSide.bind(null, s.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
+                  >
+                    Borrar
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function RetentionForm({
+  retention,
+  setRetention,
+  action,
+  pending,
+  state,
+}: {
+  retention: { pendingDays: string; receivedDays: string };
+  setRetention: React.Dispatch<
+    React.SetStateAction<{ pendingDays: string; receivedDays: string }>
+  >;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  state: { error: string | null; ok?: boolean };
+}) {
+  return (
+    <section className="border-b-2 border-dashed border-ink/10 pb-8">
+      <h2 className="font-display text-2xl text-pine">
+        Vencimiento de pedidos
+      </h2>
+      <p className="mt-1 text-sm text-ink/60">
+        Los pedidos se borran automáticamente después de estos días. Se aplica
+        cada día (cron de Vercel) y al abrir esta página.
+      </p>
+
+      <form action={action} className="mt-5 flex flex-col gap-4">
+        <div className="grid max-w-md gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-pending" className="text-sm font-bold text-pine">
+              Pendientes (días)
+            </label>
+            <input
+              id="r-pending"
+              name="pending_days"
+              type="number"
+              min={1}
+              required
+              value={retention.pendingDays}
+              onChange={(e) =>
+                setRetention((r) => ({ ...r, pendingDays: e.target.value }))
+              }
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-received" className="text-sm font-bold text-pine">
+              Recibidos (días)
+            </label>
+            <input
+              id="r-received"
+              name="received_days"
+              type="number"
+              min={1}
+              required
+              value={retention.receivedDays}
+              onChange={(e) =>
+                setRetention((r) => ({ ...r, receivedDays: e.target.value }))
+              }
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {state.error && (
+          <p
+            role="alert"
+            className="rounded-md bg-red-100 px-3 py-2 text-sm font-semibold text-red-800"
+          >
+            {state.error}
+          </p>
+        )}
+        {state.ok && (
+          <p className="rounded-md bg-green-100 px-3 py-2 text-sm font-semibold text-green-800">
+            Ajustes guardados.
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex h-11 w-fit items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
+        >
+          {pending ? "Guardando…" : "Guardar ajustes"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function OrderList({ orders }: { orders: Order[] }) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-display text-2xl text-pine">
+        Pedidos ({orders.length})
+      </h2>
+
+      {orders.length === 0 ? (
+        <p className="mt-8 text-center text-ink/55">
+          Aún no hay pedidos. Cuando un cliente envíe un pedido por WhatsApp,
+          aparecerá aquí.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-ink/10">
+          {orders.map((o) => (
+            <li key={o.id} className="flex flex-col gap-3 py-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+                    o.status === "recibido"
+                      ? "bg-pine/15 text-pine"
+                      : "bg-butter/25 text-butter-deep"
+                  }`}
+                >
+                  {o.status}
+                </span>
+                <span className="font-semibold text-pine">{o.name}</span>
+                <span className="text-sm text-ink/60">{o.phone}</span>
+                <span className="text-sm text-ink/55">
+                  Recibido {formatDate(o.created_at)} · Entrega{" "}
+                  {formatDate(o.delivery_date)}
+                </span>
+                <span className="ml-auto font-display text-lg text-butter-deep">
+                  {formatPrice(o.total)}
+                </span>
+              </div>
+
+              <ul className="rounded-md bg-cream px-4 py-2 text-sm text-ink/75">
+                {o.items.map((i, idx) => (
+                  <li
+                    key={`${o.id}-${idx}`}
+                    className="flex items-baseline justify-between gap-2 py-0.5"
+                  >
+                    <span>
+                      {i.product.name} ×{i.qty}
+                      {i.side ? ` · ${i.side.name}` : ""}
+                    </span>
+                    <span className="text-ink/55">
+                      {formatPrice(i.product.price * i.qty)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {o.note && (
+                <p className="text-sm text-ink/60">
+                  <span className="font-bold text-pine">Nota:</span> {o.note}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                {o.status === "pendiente" && (
+                  <form action={markOrderReceived.bind(null, o.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+                    >
+                      Marcar recibido
+                    </button>
+                  </form>
+                )}
+                <form action={deleteOrder.bind(null, o.id)}>
                   <button
                     type="submit"
                     className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"

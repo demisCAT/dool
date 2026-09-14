@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
+import type { CartItem, OrderForm } from "@/lib/types";
 
 export async function signIn(
   _prev: { error: string | null },
@@ -258,4 +259,104 @@ export async function toggleSideActive(id: string, active: boolean) {
   }
   revalidatePath("/");
   revalidatePath("/admin");
+}
+
+export async function submitOrder(
+  items: CartItem[],
+  form: OrderForm
+): Promise<{ error: string | null }> {
+  const name = form.name.trim();
+  const phone = form.phone.trim();
+  const deliveryDate = form.deliveryDate.trim();
+  const note = form.note.trim();
+
+  if (name.length < 2 || phone.replace(/\D/g, "").length < 8 || !deliveryDate) {
+    return { error: "Completa nombre, teléfono y fecha de entrega." };
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: "Tu pedido está vacío." };
+  }
+
+  const total = items.reduce(
+    (sum, i) => sum + Number(i.product.price) * Number(i.qty),
+    0
+  );
+
+  const supabase = await createServerClientInstance();
+  const { error } = await supabase.from("orders").insert({
+    name,
+    phone,
+    delivery_date: deliveryDate,
+    note,
+    items,
+    total,
+    status: "pendiente",
+  });
+
+  if (error) {
+    console.error("Error guardando pedido:", error.message);
+    return { error: "No se pudo guardar el pedido. Intenta de nuevo." };
+  }
+  return { error: null };
+}
+
+export async function markOrderReceived(id: string) {
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "recibido" })
+      .eq("id", id);
+    if (error) throw error;
+  } catch {
+    // silencioso
+  }
+  revalidatePath("/admin");
+}
+
+export async function deleteOrder(id: string) {
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+    if (error) throw error;
+  } catch {
+    // silencioso
+  }
+  revalidatePath("/admin");
+}
+
+export async function saveSettings(
+  _prev: { error: string | null; ok?: boolean },
+  formData: FormData
+): Promise<{ error: string | null; ok?: boolean }> {
+  const pendingDays = Number(formData.get("pending_days") ?? 0);
+  const receivedDays = Number(formData.get("received_days") ?? 0);
+
+  if (
+    !Number.isInteger(pendingDays) ||
+    pendingDays < 1 ||
+    !Number.isInteger(receivedDays) ||
+    receivedDays < 1
+  ) {
+    return { error: "Los días deben ser números enteros mayores que 0." };
+  }
+
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase.from("settings").upsert([
+      { key: "order_retention_pending_days", value: String(pendingDays) },
+      { key: "order_retention_received_days", value: String(receivedDays) },
+    ]);
+    if (error) throw error;
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudieron guardar los ajustes.",
+    };
+  }
+
+  revalidatePath("/admin");
+  return { error: null, ok: true };
 }
