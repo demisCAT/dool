@@ -17,9 +17,18 @@ export interface Product {
   position: number;
 }
 
+export interface Side {
+  id: string;
+  name: string;
+  description: string;
+  active: boolean;
+  position: number;
+}
+
 export interface CartItem {
   product: Product;
   qty: number;
+  side: Side | null;
 }
 
 export interface OrderForm {

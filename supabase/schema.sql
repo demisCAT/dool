@@ -26,10 +26,20 @@ create table if not exists public.products (
 
 create index if not exists products_category_idx on public.products(category_id);
 
+create table if not exists public.sides (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null default '',
+  active boolean not null default true,
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- ============ RLS ============
 
 alter table public.categories enable row level security;
 alter table public.products enable row level security;
+alter table public.sides enable row level security;
 
 -- Lectura pública (tienda)
 create policy "categorias_lectura_publica" on public.categories
@@ -38,11 +48,17 @@ create policy "categorias_lectura_publica" on public.categories
 create policy "productos_lectura_publica" on public.products
   for select using (true);
 
+create policy "sides_lectura_publica" on public.sides
+  for select using (true);
+
 -- Escritura solo autenticados (admin)
 create policy "categorias_admin_escritura" on public.categories
   for all to authenticated using (true) with check (true);
 
 create policy "productos_admin_escritura" on public.products
+  for all to authenticated using (true) with check (true);
+
+create policy "sides_admin_escritura" on public.sides
   for all to authenticated using (true) with check (true);
 
 -- ============ STORAGE ============
@@ -72,3 +88,11 @@ insert into public.categories (name, slug, position) values
   ('Guarniciones', 'guarniciones', 1),
   ('Postres', 'postres', 2)
 on conflict (slug) do nothing;
+
+-- ============ ACOMPAÑAMIENTOS INICIALES (ejemplo, edítalos en el admin) ============
+
+insert into public.sides (name, description, position) values
+  ('Papas fritas', '', 0),
+  ('Ensalada fresca', 'Lechuga, tomate y cebolla', 1),
+  ('Arroz', '', 2)
+on conflict do nothing;

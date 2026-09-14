@@ -1,16 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import type { Category, Product } from "@/lib/types";
+import type { Category, Product, Side } from "@/lib/types";
 import { useCart } from "./cart-provider";
+import { SideSelector } from "./side-selector";
 import { formatPrice } from "@/lib/format";
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  sides,
+  onOpenSidePicker,
+}: {
+  product: Product;
+  sides: Side[];
+  onOpenSidePicker: (product: Product) => void;
+}) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
 
   function handleAdd() {
-    add(product);
+    if (product.with_side && sides.length > 0) {
+      onOpenSidePicker(product);
+      return;
+    }
+    add(product, null);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1200);
   }
@@ -67,13 +80,17 @@ function ProductCard({ product }: { product: Product }) {
 export function MenuSection({
   categories,
   products,
+  sides,
 }: {
   categories: Category[];
   products: Product[];
+  sides: Side[];
 }) {
+  const { add } = useCart();
   const [activeId, setActiveId] = useState<string | null>(
     categories[0]?.id ?? null
   );
+  const [pickerProduct, setPickerProduct] = useState<Product | null>(null);
 
   const ordered = [...categories].sort((a, b) => a.position - b.position);
   const visible = products.filter((p) => p.category_id === activeId);
@@ -84,6 +101,18 @@ export function MenuSection({
 
   return (
     <section id="menu" className="paper-grain scroll-mt-16 py-16 sm:py-20">
+      {pickerProduct && (
+        <SideSelector
+          key={pickerProduct.id}
+          product={pickerProduct}
+          sides={sides}
+          onAdd={(product, side) => {
+            add(product, side);
+            setPickerProduct(null);
+          }}
+          onClose={() => setPickerProduct(null)}
+        />
+      )}
       <div className="mx-auto max-w-6xl px-5">
         <p className="font-hand text-center text-3xl text-butter-deep">
           preparado hoy
@@ -124,7 +153,12 @@ export function MenuSection({
         ) : (
           <div className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                sides={sides}
+                onOpenSidePicker={setPickerProduct}
+              />
             ))}
           </div>
         )}

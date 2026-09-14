@@ -5,9 +5,14 @@ export function buildOrderMessage(
   items: CartItem[],
   form: OrderForm
 ): string {
-  const lines = items.map(
-    ({ product, qty }) => `• ${product.name} ×${qty} — ${formatPrice(product.price * qty)}`
-  );
+  const lines = items.map(({ product, qty, side }) => {
+    const sideText = product.with_side
+      ? side
+        ? ` (con ${side.name})`
+        : " (sin acompañamiento)"
+      : "";
+    return `• ${product.name}${sideText} ×${qty} — ${formatPrice(product.price * qty)}`;
+  });
 
   const total = items.reduce((sum, { product, qty }) => sum + product.price * qty, 0);
 

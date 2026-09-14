@@ -10,21 +10,25 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartItem, Product } from "@/lib/types";
+import type { CartItem, Product, Side } from "@/lib/types";
 
 interface CartContextValue {
   items: CartItem[];
   total: number;
   count: number;
-  add: (product: Product) => void;
-  remove: (productId: string) => void;
-  setQty: (productId: string, qty: number) => void;
+  add: (product: Product, side: Side | null) => void;
+  remove: (productId: string, side: Side | null) => void;
+  setQty: (productId: string, side: Side | null, qty: number) => void;
   clear: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 const STORAGE_KEY = "divina-natales-cart";
+
+function itemKey(productId: string, side: Side | null): string {
+  return side ? `${productId}:${side.id}` : productId;
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -33,8 +37,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura inicial de localStorage, patrón recomendado para persistencia externa
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: CartItem[] = JSON.parse(raw);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura inicial de localStorage, patrón recomendado para persistencia externa
+        setItems(parsed.map((i) => ({ product: i.product, qty: i.qty, side: i.side ?? null })));
+      }
     } catch {
       // carrito corrupto: empezar vacío
     }
@@ -50,29 +57,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  const add = useCallback((product: Product) => {
+  const add = useCallback((product: Product, side: Side | null) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
+      const key = itemKey(product.id, side);
+      const existing = prev.find(
+        (i) => itemKey(i.product.id, i.side) === key
+      );
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i
+          itemKey(i.product.id, i.side) === key ? { ...i, qty: i.qty + 1 } : i
         );
       }
-      return [...prev, { product, qty: 1 }];
+      return [...prev, { product, qty: 1, side }];
     });
   }, []);
 
-  const remove = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => i.product.id !== productId));
-  }, []);
-
-  const setQty = useCallback((productId: string, qty: number) => {
+  const remove = useCallback((productId: string, side: Side | null) => {
+    const key = itemKey(productId, side);
     setItems((prev) =>
-      qty <= 0
-        ? prev.filter((i) => i.product.id !== productId)
-        : prev.map((i) => (i.product.id === productId ? { ...i, qty } : i))
+      prev.filter((i) => itemKey(i.product.id, i.side) !== key)
     );
   }, []);
+
+  const setQty = useCallback(
+    (productId: string, side: Side | null, qty: number) => {
+      const key = itemKey(productId, side);
+      setItems((prev) =>
+        qty <= 0
+          ? prev.filter((i) => itemKey(i.product.id, i.side) !== key)
+          : prev.map((i) =>
+              itemKey(i.product.id, i.side) === key ? { ...i, qty } : i
+            )
+      );
+    },
+    []
+  );
 
   const clear = useCallback(() => setItems([]), []);
 

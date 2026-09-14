@@ -48,10 +48,16 @@ export default async function AdminPage() {
     .select("id, category_id, name, description, price, image_url, active, with_side, position")
     .order("position");
 
+  const { data: allSides } = await supabase
+    .from("sides")
+    .select("id, name, description, active, position")
+    .order("position");
+
   return (
     <AdminPanel
       categories={categories}
       products={allProducts ?? []}
+      sides={allSides ?? []}
       adminEmail={user.email ?? ""}
     />
   );

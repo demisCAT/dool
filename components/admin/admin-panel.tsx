@@ -2,7 +2,7 @@
 
 import { useRef, useState, useActionState } from "react";
 import Link from "next/link";
-import type { Category, Product } from "@/lib/types";
+import type { Category, Product, Side } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,10 +11,13 @@ import {
   toggleProductActive,
   saveCategory,
   deleteCategory,
+  saveSide,
+  deleteSide,
+  toggleSideActive,
   signOut,
 } from "@/app/admin/actions";
 
-type Tab = "productos" | "categorias";
+type Tab = "productos" | "categorias" | "acompanamientos";
 
 const EMPTY_PRODUCT = {
   id: "",
@@ -28,13 +31,23 @@ const EMPTY_PRODUCT = {
   position: "0",
 };
 
+const EMPTY_SIDE = {
+  id: "",
+  name: "",
+  description: "",
+  active: true,
+  position: "0",
+};
+
 export function AdminPanel({
   categories,
   products,
+  sides,
   adminEmail,
 }: {
   categories: Category[];
   products: Product[];
+  sides: Side[];
   adminEmail: string;
 }) {
   const [tab, setTab] = useState<Tab>("productos");
@@ -45,6 +58,9 @@ export function AdminPanel({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [side, setSide] = useState(EMPTY_SIDE);
+  const [showSideForm, setShowSideForm] = useState(false);
+
   const [productState, productAction, productPending] = useActionState(
     saveProduct,
     { error: null, ok: false }
@@ -53,8 +69,16 @@ export function AdminPanel({
     saveCategory,
     { error: null, ok: false }
   );
+  const [sideState, sideAction, sidePending] = useActionState(saveSide, {
+    error: null,
+    ok: false,
+  });
 
-  const [prevOk, setPrevOk] = useState({ product: false, category: false });
+  const [prevOk, setPrevOk] = useState({
+    product: false,
+    category: false,
+    side: false,
+  });
 
   if (productState.ok !== prevOk.product) {
     setPrevOk((s) => ({ ...s, product: productState.ok ?? false }));
@@ -68,6 +92,15 @@ export function AdminPanel({
   if (categoryState.ok !== prevOk.category) {
     setPrevOk((s) => ({ ...s, category: categoryState.ok ?? false }));
     if (categoryState.ok) {
+      setFormKey((k) => k + 1);
+    }
+  }
+
+  if (sideState.ok !== prevOk.side) {
+    setPrevOk((s) => ({ ...s, side: sideState.ok ?? false }));
+    if (sideState.ok) {
+      setSide(EMPTY_SIDE);
+      setShowSideForm(false);
       setFormKey((k) => k + 1);
     }
   }
@@ -130,6 +163,25 @@ export function AdminPanel({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function startEditSide(s: Side) {
+    setTab("acompanamientos");
+    setSide({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      active: s.active,
+      position: String(s.position),
+    });
+    setShowSideForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function startCreateSide() {
+    setSide(EMPTY_SIDE);
+    setShowSideForm((v) => !v);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const orderedCategories = [...categories].sort(
     (a, b) => a.position - b.position
   );
@@ -188,6 +240,18 @@ export function AdminPanel({
           >
             Categorías
           </button>
+          <button
+            role="tab"
+            aria-selected={tab === "acompanamientos"}
+            onClick={() => setTab("acompanamientos")}
+            className={`rounded-t-lg px-5 py-2.5 font-bold transition-colors ${
+              tab === "acompanamientos"
+                ? "bg-paper text-pine shadow-sm"
+                : "text-ink/50 hover:text-pine"
+            }`}
+          >
+            Acompañamientos
+          </button>
         </div>
 
         <div className="rounded-b-lg rounded-tr-lg bg-paper p-6 shadow-md shadow-ink/8">
@@ -214,6 +278,25 @@ export function AdminPanel({
                 categories={orderedCategories}
                 onEdit={startEdit}
                 onAdd={startCreate}
+              />
+            </>
+          ) : tab === "acompanamientos" ? (
+            <>
+              {showSideForm && (
+                <SideForm
+                  key={`s-${formKey}`}
+                  side={side}
+                  setSide={setSide}
+                  action={sideAction}
+                  pending={sidePending}
+                  state={sideState}
+                  onCancel={() => setShowSideForm(false)}
+                />
+              )}
+              <SideList
+                sides={sides}
+                onEdit={startEditSide}
+                onAdd={startCreateSide}
               />
             </>
           ) : (
@@ -666,6 +749,195 @@ function CategoryList({
               </li>
             );
           })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function SideForm({
+  side,
+  setSide,
+  action,
+  pending,
+  state,
+  onCancel,
+}: {
+  side: typeof EMPTY_SIDE;
+  setSide: React.Dispatch<React.SetStateAction<typeof EMPTY_SIDE>>;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  state: { error: string | null; ok?: boolean };
+  onCancel: () => void;
+}) {
+  const isEditing = Boolean(side.id);
+  const set = (patch: Partial<typeof EMPTY_SIDE>) =>
+    setSide((s) => ({ ...s, ...patch }));
+
+  return (
+    <section className="border-b-2 border-dashed border-ink/10 pb-8">
+      <h2 className="font-display text-2xl text-pine">
+        {isEditing ? "Editar acompañamiento" : "Nuevo acompañamiento"}
+      </h2>
+
+      <form action={action} className="mt-5 flex flex-col gap-4">
+        {side.id && <input type="hidden" name="id" value={side.id} />}
+        <input type="hidden" name="position" value={side.position} />
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="s-name" className="text-sm font-bold text-pine">
+            Nombre
+          </label>
+          <input
+            id="s-name"
+            name="name"
+            required
+            value={side.name}
+            onChange={(e) => set({ name: e.target.value })}
+            className="h-11 max-w-sm rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="s-desc" className="text-sm font-bold text-pine">
+            Descripción{" "}
+            <span className="font-normal text-ink/50">(opcional)</span>
+          </label>
+          <input
+            id="s-desc"
+            name="description"
+            value={side.description}
+            onChange={(e) => set({ description: e.target.value })}
+            placeholder="Ej: Lechuga, tomate y cebolla"
+            className="h-11 max-w-sm rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+          />
+        </div>
+
+        <label className="flex w-fit items-center gap-2 text-sm font-bold text-pine">
+          <input
+            type="checkbox"
+            name="active"
+            checked={side.active}
+            onChange={(e) => set({ active: e.target.checked })}
+            className="h-4 w-4 accent-[#1e3b32]"
+          />
+          Disponible en la tienda
+        </label>
+
+        {state.error && (
+          <p
+            role="alert"
+            className="rounded-md bg-red-100 px-3 py-2 text-sm font-semibold text-red-800"
+          >
+            {state.error}
+          </p>
+        )}
+        {state.ok && (
+          <p className="rounded-md bg-green-100 px-3 py-2 text-sm font-semibold text-green-800">
+            Acompañamiento guardado.
+          </p>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex h-11 items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
+          >
+            {pending
+              ? "Guardando…"
+              : isEditing
+                ? "Guardar cambios"
+                : "Crear acompañamiento"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-11 items-center rounded-full border-2 border-ink/15 px-6 font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function SideList({
+  sides,
+  onEdit,
+  onAdd,
+}: {
+  sides: Side[];
+  onEdit: (s: Side) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <section className="mt-8">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl text-pine">
+          Acompañamientos ({sides.length})
+        </h2>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex h-10 items-center rounded-full bg-pine px-5 text-sm font-bold text-chalk transition-colors hover:bg-pine-deep"
+        >
+          Nuevo acompañamiento
+        </button>
+      </div>
+
+      {sides.length === 0 ? (
+        <p className="mt-8 text-center text-ink/55">
+          Aún no hay acompañamientos. Crea el primero con el botón &quot;Nuevo
+          acompañamiento&quot;.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-ink/10">
+          {sides.map((s) => (
+            <li key={s.id} className="flex items-center gap-4 py-3">
+              <form action={toggleSideActive.bind(null, s.id, !s.active)}>
+                <button
+                  type="submit"
+                  role="switch"
+                  aria-checked={s.active}
+                  title={s.active ? "Desactivar acompañamiento" : "Activar acompañamiento"}
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
+                    s.active ? "bg-pine" : "bg-ink/25"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
+                      s.active ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </form>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-pine">{s.name}</p>
+                {s.description && (
+                  <p className="truncate text-sm text-ink/55">{s.description}</p>
+                )}
+              </div>
+              <div className="flex justify-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => onEdit(s)}
+                  className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+                >
+                  Editar
+                </button>
+                <form action={deleteSide.bind(null, s.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
+                  >
+                    Borrar
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </section>

@@ -195,3 +195,67 @@ export async function deleteCategory(id: string) {
   revalidatePath("/");
   revalidatePath("/admin");
 }
+
+export async function saveSide(
+  _prev: { error: string | null; ok?: boolean },
+  formData: FormData
+): Promise<{ error: string | null; ok?: boolean }> {
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const active = formData.get("active") === "on";
+  const position = Number(formData.get("position") ?? 0);
+
+  if (!name) {
+    return { error: "Escribe un nombre para el acompañamiento." };
+  }
+
+  try {
+    const supabase = await requireUser();
+    const payload = { name, description, active, position };
+
+    const { error } = id
+      ? await supabase.from("sides").update(payload).eq("id", id)
+      : await supabase.from("sides").insert(payload);
+
+    if (error) throw error;
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo guardar el acompañamiento.",
+    };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null, ok: true };
+}
+
+export async function deleteSide(id: string) {
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase.from("sides").delete().eq("id", id);
+    if (error) throw error;
+  } catch {
+    // silencioso
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function toggleSideActive(id: string, active: boolean) {
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase
+      .from("sides")
+      .update({ active })
+      .eq("id", id);
+    if (error) throw error;
+  } catch {
+    // silencioso
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+}

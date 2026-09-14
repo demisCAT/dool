@@ -59,8 +59,8 @@ export function OrderForm() {
               </div>
             ) : (
               <ul className="divide-y divide-ink/10 rounded-lg bg-cream shadow-md shadow-ink/6">
-                {items.map(({ product, qty }) => (
-                  <li key={product.id} className="flex items-center gap-4 p-4">
+                {items.map(({ product, qty, side }) => (
+                  <li key={`${product.id}:${side?.id ?? "none"}`} className="flex items-center gap-4 p-4">
                     {product.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -79,6 +79,11 @@ export function OrderForm() {
                       <p className="truncate font-semibold text-pine">
                         {product.name}
                       </p>
+                      {product.with_side && (
+                        <p className="text-sm text-ink/60">
+                          {side ? `Acompañamiento: ${side.name}` : "Sin acompañamiento"}
+                        </p>
+                      )}
                       <p className="text-sm text-ink/60">
                         {formatPrice(product.price)}
                       </p>
@@ -86,7 +91,7 @@ export function OrderForm() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setQty(product.id, qty - 1)}
+                        onClick={() => setQty(product.id, side, qty - 1)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/20 font-bold text-ink/70 transition-colors hover:bg-pine hover:text-chalk"
                         aria-label={`Quitar una unidad de ${product.name}`}
                       >
@@ -97,7 +102,7 @@ export function OrderForm() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setQty(product.id, qty + 1)}
+                        onClick={() => setQty(product.id, side, qty + 1)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/20 font-bold text-ink/70 transition-colors hover:bg-pine hover:text-chalk"
                         aria-label={`Agregar una unidad de ${product.name}`}
                       >
@@ -106,7 +111,7 @@ export function OrderForm() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => remove(product.id)}
+                      onClick={() => remove(product.id, side)}
                       className="font-hand text-xl text-ink/40 transition-colors hover:text-red-700"
                       aria-label={`Quitar ${product.name} del pedido`}
                     >

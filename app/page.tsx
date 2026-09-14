@@ -14,9 +14,9 @@ export default async function Home() {
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-  const { categories, products } = hasEnv
+  const { categories, products, sides } = hasEnv
     ? await getStoreData()
-    : { categories: [], products: [] };
+    : { categories: [], products: [], sides: [] };
 
   return (
     <CartProvider>
@@ -31,7 +31,7 @@ export default async function Home() {
           )}
           <Hero products={products} />
           <HowItWorks />
-          <MenuSection categories={categories} products={products} />
+          <MenuSection categories={categories} products={products} sides={sides} />
           <OrderForm />
         </main>
         <Footer />
