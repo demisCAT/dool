@@ -126,7 +126,10 @@ export async function deleteProduct(id: string) {
   revalidatePath("/admin");
 }
 
-export async function toggleProductActive(id: string, active: boolean) {
+export async function toggleProductActive(
+  id: string,
+  active: boolean
+): Promise<{ error: string | null }> {
   try {
     const supabase = await requireUser();
     const { error } = await supabase
@@ -134,11 +137,17 @@ export async function toggleProductActive(id: string, active: boolean) {
       .update({ active })
       .eq("id", id);
     if (error) throw error;
-  } catch {
-    // silencioso: revalidate deja ver el estado real
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo actualizar la disponibilidad.",
+    };
   }
   revalidatePath("/");
   revalidatePath("/admin");
+  return { error: null };
 }
 
 export async function saveCategory(
@@ -246,7 +255,10 @@ export async function deleteSide(id: string) {
   revalidatePath("/admin");
 }
 
-export async function toggleSideActive(id: string, active: boolean) {
+export async function toggleSideActive(
+  id: string,
+  active: boolean
+): Promise<{ error: string | null }> {
   try {
     const supabase = await requireUser();
     const { error } = await supabase
@@ -254,11 +266,17 @@ export async function toggleSideActive(id: string, active: boolean) {
       .update({ active })
       .eq("id", id);
     if (error) throw error;
-  } catch {
-    // silencioso
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo actualizar el acompañamiento.",
+    };
   }
   revalidatePath("/");
   revalidatePath("/admin");
+  return { error: null };
 }
 
 export async function submitOrder(

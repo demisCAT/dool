@@ -25,6 +25,7 @@ import {
   saveSettings,
   signOut,
 } from "@/app/admin/actions";
+import { ActiveToggle } from "./active-toggle";
 
 type Tab = "productos" | "pedidos" | "categorias" | "acompanamientos";
 
@@ -637,26 +638,14 @@ function ProductList({
           <ul className="divide-y divide-ink/10">
             {products.map((p) => (
               <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
-                <form
-                  className="flex justify-center"
-                  action={toggleProductActive.bind(null, p.id, !p.active)}
-                >
-                  <button
-                    type="submit"
-                    role="switch"
-                    aria-checked={p.active}
-                    title={p.active ? "Desactivar plato" : "Activar plato"}
-                    className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
-                      p.active ? "bg-pine" : "bg-ink/25"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
-                        p.active ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </form>
+                <div className="flex justify-center">
+                  <ActiveToggle
+                    active={p.active}
+                    titleOn="Activar plato"
+                    titleOff="Desactivar plato"
+                    onToggle={(next) => toggleProductActive(p.id, next)}
+                  />
+                </div>
                 {p.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -950,23 +939,12 @@ function SideList({
         <ul className="mt-4 divide-y divide-ink/10">
           {sides.map((s) => (
             <li key={s.id} className="flex items-center gap-4 py-3">
-              <form action={toggleSideActive.bind(null, s.id, !s.active)}>
-                <button
-                  type="submit"
-                  role="switch"
-                  aria-checked={s.active}
-                  title={s.active ? "Desactivar acompañamiento" : "Activar acompañamiento"}
-                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
-                    s.active ? "bg-pine" : "bg-ink/25"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-chalk shadow transition-transform ${
-                      s.active ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </form>
+              <ActiveToggle
+                active={s.active}
+                titleOn="Activar acompañamiento"
+                titleOff="Desactivar acompañamiento"
+                onToggle={(next) => toggleSideActive(s.id, next)}
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-pine">{s.name}</p>
                 {s.description && (
