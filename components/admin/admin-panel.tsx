@@ -603,8 +603,41 @@ function ProductList({
   onEdit: (p: Product) => void;
   onAdd: () => void;
 }) {
+  const [filter, setFilter] = useState<string>("all");
+
   const catName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? "Sin categoría";
+
+  const countFor = (id: string) =>
+    products.filter((p) => p.category_id === id).length;
+
+  const hasOrphans = products.some(
+    (p) => !categories.some((c) => c.id === p.category_id)
+  );
+
+  const visible = (
+    filter === "all"
+      ? products
+      : filter === "none"
+        ? products.filter((p) => !categories.some((c) => c.id === p.category_id))
+        : products.filter((p) => p.category_id === filter)
+  )
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  const activeCatName =
+    filter === "all"
+      ? null
+      : filter === "none"
+        ? "Sin categoría"
+        : catName(filter);
+
+  const chipClass = (isActive: boolean) =>
+    `inline-flex h-9 items-center rounded-full border-2 px-4 text-sm font-bold transition-colors ${
+      isActive
+        ? "border-pine bg-pine text-chalk"
+        : "border-ink/15 text-ink/70 hover:border-pine hover:text-pine"
+    }`;
 
   return (
     <section className="mt-8">
@@ -627,67 +660,109 @@ function ProductList({
         </p>
       ) : (
         <>
-          <div className="mt-4 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
-            <span className="text-center">Disp.</span>
-            <span>Foto</span>
-            <span>Producto</span>
-            <span className="text-right">Precio</span>
-            <span className="text-center">Acomp.</span>
-            <span className="text-left">Acciones</span>
-          </div>
-          <ul className="divide-y divide-ink/10">
-            {products.map((p) => (
-              <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
-                <div className="flex justify-center">
-                  <ActiveToggle
-                    active={p.active}
-                    titleOn="Activar plato"
-                    titleOff="Desactivar plato"
-                    onToggle={(next) => toggleProductActive(p.id, next)}
-                  />
-                </div>
-                {p.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.image_url}
-                    alt=""
-                    className="h-12 w-16 rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
-                    <span className="font-display text-[10px] text-pine/40">DN</span>
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-pine">{p.name}</p>
-                  <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
-                </div>
-                <span className="text-right font-display text-lg text-butter-deep">
-                  {formatPrice(p.price)}
-                </span>
-                <span className="text-center text-sm font-bold text-ink/70">
-                  {p.with_side ? "Sí" : "—"}
-                </span>
-                <div className="flex justify-start gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(p)}
-                    className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
-                  >
-                    Editar
-                  </button>
-                  <form action={deleteProduct.bind(null, p.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
-                    >
-                      Borrar
-                    </button>
-                  </form>
-                </div>
-              </li>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              aria-pressed={filter === "all"}
+              className={chipClass(filter === "all")}
+            >
+              Todas ({products.length})
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setFilter(c.id)}
+                aria-pressed={filter === c.id}
+                className={chipClass(filter === c.id)}
+              >
+                {c.name} ({countFor(c.id)})
+              </button>
             ))}
-          </ul>
+            {hasOrphans && (
+              <button
+                type="button"
+                onClick={() => setFilter("none")}
+                aria-pressed={filter === "none"}
+                className={chipClass(filter === "none")}
+              >
+                Sin categoría
+              </button>
+            )}
+          </div>
+
+          {visible.length === 0 ? (
+            <p className="mt-8 text-center text-ink/55">
+              {activeCatName
+                ? `"${activeCatName}" aún no tiene productos.`
+                : "Esta categoría aún no tiene productos."}
+            </p>
+          ) : (
+            <>
+              <div className="mt-6 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
+                <span className="text-center">Disp.</span>
+                <span>Foto</span>
+                <span>Producto</span>
+                <span className="text-right">Precio</span>
+                <span className="text-center">Acomp.</span>
+                <span className="text-left">Acciones</span>
+              </div>
+              <ul className="divide-y divide-ink/10">
+                {visible.map((p) => (
+                  <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
+                    <div className="flex justify-center">
+                      <ActiveToggle
+                        active={p.active}
+                        titleOn="Activar plato"
+                        titleOff="Desactivar plato"
+                        onToggle={(next) => toggleProductActive(p.id, next)}
+                      />
+                    </div>
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image_url}
+                        alt=""
+                        className="h-12 w-16 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
+                        <span className="font-display text-[10px] text-pine/40">DN</span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-pine">{p.name}</p>
+                      <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
+                    </div>
+                    <span className="text-right font-display text-lg text-butter-deep">
+                      {formatPrice(p.price)}
+                    </span>
+                    <span className="text-center text-sm font-bold text-ink/70">
+                      {p.with_side ? "Sí" : "—"}
+                    </span>
+                    <div className="flex justify-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(p)}
+                        className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+                      >
+                        Editar
+                      </button>
+                      <form action={deleteProduct.bind(null, p.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-full border-2 border-ink/15 px-4 py-1.5 text-sm font-bold text-ink/70 transition-colors hover:border-red-700 hover:text-red-700"
+                        >
+                          Borrar
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     </section>
