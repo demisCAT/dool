@@ -16,12 +16,6 @@ export function Footer() {
             <PhoneContact tone="dark" />
           </p>
         )}
-        <a
-          href="/admin/login"
-          className="mt-2 text-xs text-chalk/35 transition-colors hover:text-chalk/70"
-        >
-          Acceso administrador
-        </a>
       </div>
     </footer>
   );
