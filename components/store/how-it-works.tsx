@@ -1,3 +1,5 @@
+import { ADDRESS, MAPS_URL } from "@/lib/location";
+
 const STEPS = [
   {
     n: "1",
@@ -38,6 +40,38 @@ export function HowItWorks() {
             </li>
           ))}
         </ol>
+
+        <div className="mt-12 flex flex-col items-center gap-2 text-center">
+          <p className="font-hand text-2xl text-butter">dónde encontrarnos</p>
+          <a
+            href={MAPS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 items-center gap-2 rounded-full border-2 border-butter/50 px-6 text-sm font-bold text-chalk transition-colors hover:border-butter hover:bg-butter hover:text-pine focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-5 w-5 shrink-0"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+              />
+            </svg>
+            {ADDRESS}
+          </a>
+          <p className="text-sm text-chalk/60">Ver en Google Maps</p>
+        </div>
       </div>
     </section>
   );
