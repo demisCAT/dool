@@ -63,7 +63,6 @@ export async function saveProduct(
   const imageUrl = String(formData.get("image_url") ?? "").trim();
   const active = formData.get("active") === "on";
   const withSide = formData.get("with_side") === "on";
-  const position = Number(formData.get("position") ?? 0);
 
   if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
     return { error: "Completa nombre, categoría y un precio válido." };
@@ -79,14 +78,54 @@ export async function saveProduct(
       image_url: imageUrl || null,
       active,
       with_side: withSide,
-      position,
     };
 
-    const { error } = id
-      ? await supabase.from("products").update(payload).eq("id", id)
-      : await supabase.from("products").insert(payload);
+    if (id) {
+      const { data: current } = await supabase
+        .from("products")
+        .select("category_id")
+        .eq("id", id)
+        .maybeSingle();
 
-    if (error) throw error;
+      // Si cambia de categoria, pasa al final de la nueva.
+      const movedCategory =
+        current && (current.category_id as string | null) !== categoryId;
+
+      if (movedCategory) {
+        const { data: maxRow } = await supabase
+          .from("products")
+          .select("position")
+          .eq("category_id", categoryId)
+          .order("position", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const position = ((maxRow?.position as number | undefined) ?? -1) + 1;
+        const { error } = await supabase
+          .from("products")
+          .update({ ...payload, position })
+          .eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("products")
+          .update(payload)
+          .eq("id", id);
+        if (error) throw error;
+      }
+    } else {
+      const { data: maxRow } = await supabase
+        .from("products")
+        .select("position")
+        .eq("category_id", categoryId)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const position = ((maxRow?.position as number | undefined) ?? -1) + 1;
+      const { error } = await supabase
+        .from("products")
+        .insert({ ...payload, position });
+      if (error) throw error;
+    }
   } catch (e) {
     return {
       error:
@@ -166,9 +205,18 @@ export async function saveCategory(
 
   try {
     const supabase = await requireUser();
+
+    const { data: maxRow } = await supabase
+      .from("categories")
+      .select("position")
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const position = ((maxRow?.position as number | undefined) ?? -1) + 1;
+
     const { error } = await supabase
       .from("categories")
-      .insert({ name, slug });
+      .insert({ name, slug, position });
     if (error) throw error;
   } catch (e) {
     return {
@@ -214,7 +262,6 @@ export async function saveSide(
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const active = formData.get("active") === "on";
-  const position = Number(formData.get("position") ?? 0);
 
   if (!name) {
     return { error: "Escribe un nombre para el acompañamiento." };
@@ -222,11 +269,28 @@ export async function saveSide(
 
   try {
     const supabase = await requireUser();
-    const payload = { name, description, active, position };
+
+    // Al crear, la posicion se asigna al final de la lista.
+    // Al editar, se conserva la actual.
+    let position = 0;
+    if (!id) {
+      const { data: maxRow } = await supabase
+        .from("sides")
+        .select("position")
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      position = ((maxRow?.position as number | undefined) ?? -1) + 1;
+    }
 
     const { error } = id
-      ? await supabase.from("sides").update(payload).eq("id", id)
-      : await supabase.from("sides").insert(payload);
+      ? await supabase
+          .from("sides")
+          .update({ name, description, active })
+          .eq("id", id)
+      : await supabase
+          .from("sides")
+          .insert({ name, description, active, position });
 
     if (error) throw error;
   } catch (e) {
@@ -272,6 +336,113 @@ export async function toggleSideActive(
         e instanceof Error && e.message === "No autorizado"
           ? "Sesión vencida. Vuelve a iniciar sesión."
           : "No se pudo actualizar el acompañamiento.",
+    };
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null };
+}
+
+type MoveDirection = "up" | "down";
+
+// Renumera 0..n-1 solo las filas cuyo valor cambia.
+async function persistOrder(
+  supabase: Awaited<ReturnType<typeof requireUser>>,
+  table: "sides" | "categories" | "products",
+  orderedIds: string[]
+): Promise<void> {
+  const updates: PromiseLike<unknown>[] = [];
+  orderedIds.forEach((id, index) => {
+    updates.push(
+      supabase.from(table).update({ position: index }).eq("id", id)
+    );
+  });
+  await Promise.all(updates);
+}
+
+// Lee hermanos ordenados, mueve el id en la direccion pedida y persiste.
+async function reorder(
+  supabase: Awaited<ReturnType<typeof requireUser>>,
+  table: "sides" | "categories" | "products",
+  id: string,
+  direction: MoveDirection,
+  filter?: { column: string; value: string }
+): Promise<boolean> {
+  let query = supabase.from(table).select("id, position").order("position");
+  if (filter) query = query.eq(filter.column, filter.value);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data as { id: string }[]) ?? [];
+  const index = rows.findIndex((r) => r.id === id);
+  if (index === -1) return false;
+
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= rows.length) return false;
+
+  const ids = rows.map((r) => r.id);
+  [ids[index], ids[target]] = [ids[target], ids[index]];
+  await persistOrder(supabase, table, ids);
+  return true;
+}
+
+export async function moveSide(
+  id: string,
+  direction: MoveDirection
+): Promise<{ error: string | null }> {
+  try {
+    const supabase = await requireUser();
+    await reorder(supabase, "sides", id, direction);
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo reordenar el acompañamiento.",
+    };
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null };
+}
+
+export async function moveCategory(
+  id: string,
+  direction: MoveDirection
+): Promise<{ error: string | null }> {
+  try {
+    const supabase = await requireUser();
+    await reorder(supabase, "categories", id, direction);
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo reordenar la categoría.",
+    };
+  }
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null };
+}
+
+export async function moveProduct(
+  id: string,
+  categoryId: string,
+  direction: MoveDirection
+): Promise<{ error: string | null }> {
+  try {
+    const supabase = await requireUser();
+    await reorder(supabase, "products", id, direction, {
+      column: "category_id",
+      value: categoryId,
+    });
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo reordenar el producto.",
     };
   }
   revalidatePath("/");

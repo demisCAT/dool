@@ -15,17 +15,21 @@ import {
   saveProduct,
   deleteProduct,
   toggleProductActive,
+  moveProduct,
   saveCategory,
   deleteCategory,
+  moveCategory,
   saveSide,
   deleteSide,
   toggleSideActive,
+  moveSide,
   markOrderReceived,
   deleteOrder,
   saveSettings,
   signOut,
 } from "@/app/admin/actions";
 import { ActiveToggle } from "./active-toggle";
+import { OrderButtons } from "./order-buttons";
 
 type Tab = "productos" | "pedidos" | "categorias" | "acompanamientos";
 
@@ -38,7 +42,6 @@ const EMPTY_PRODUCT = {
   image_url: "",
   active: true,
   with_side: false,
-  position: "0",
 };
 
 const EMPTY_SIDE = {
@@ -46,7 +49,6 @@ const EMPTY_SIDE = {
   name: "",
   description: "",
   active: true,
-  position: "0",
 };
 
 export function AdminPanel({
@@ -181,7 +183,6 @@ export function AdminPanel({
       image_url: p.image_url ?? "",
       active: p.active,
       with_side: p.with_side ?? false,
-      position: String(p.position),
     });
     setUploadError(null);
     setShowForm(true);
@@ -201,7 +202,6 @@ export function AdminPanel({
       name: s.name,
       description: s.description,
       active: s.active,
-      position: String(s.position),
     });
     setShowSideForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -480,20 +480,6 @@ function ProductForm({
               ))}
             </select>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="p-pos" className="text-sm font-bold text-pine">
-              Orden de aparición
-            </label>
-            <input
-              id="p-pos"
-              name="position"
-              type="number"
-              value={product.position}
-              onChange={(e) => set({ position: e.target.value })}
-              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
-            />
-          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -615,6 +601,9 @@ function ProductList({
     (p) => !categories.some((c) => c.id === p.category_id)
   );
 
+  // Con una categoria seleccionada se muestra el orden de la tienda
+  // (por position) para poder reordenar. En "Todas" prima el alfabetico.
+  const byCategory = filter !== "all" && filter !== "none";
   const visible = (
     filter === "all"
       ? products
@@ -623,7 +612,11 @@ function ProductList({
         : products.filter((p) => p.category_id === filter)
   )
     .slice()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    .sort((a, b) =>
+      byCategory
+        ? a.position - b.position
+        : a.name.localeCompare(b.name, "es")
+    );
 
   const activeCatName =
     filter === "all"
@@ -692,6 +685,16 @@ function ProductList({
             )}
           </div>
 
+          {byCategory ? (
+            <p className="mt-4 text-sm text-ink/55">
+              Orden en la tienda. Usa las flechas para subir o bajar cada plato.
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-ink/55">
+              Elige una categoría para reordenar sus platos.
+            </p>
+          )}
+
           {visible.length === 0 ? (
             <p className="mt-8 text-center text-ink/55">
               {activeCatName
@@ -700,8 +703,8 @@ function ProductList({
             </p>
           ) : (
             <>
-              <div className="mt-6 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 sm:grid">
-                <span className="text-center">Disp.</span>
+              <div className="mt-6 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 lg:grid">
+                <span className="text-center">{byCategory ? "Orden" : "Disp."}</span>
                 <span>Foto</span>
                 <span>Producto</span>
                 <span className="text-right">Precio</span>
@@ -709,28 +712,48 @@ function ProductList({
                 <span className="text-left">Acciones</span>
               </div>
               <ul className="divide-y divide-ink/10">
-                {visible.map((p) => (
+                {visible.map((p, i) => (
                   <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
                     <div className="flex justify-center">
-                      <ActiveToggle
-                        active={p.active}
-                        titleOn="Activar plato"
-                        titleOff="Desactivar plato"
-                        onToggle={(next) => toggleProductActive(p.id, next)}
-                      />
+                      {byCategory ? (
+                        <OrderButtons
+                          label={p.name}
+                          first={i === 0}
+                          last={i === visible.length - 1}
+                          onMove={(dir) => moveProduct(p.id, filter, dir)}
+                        />
+                      ) : (
+                        <ActiveToggle
+                          active={p.active}
+                          titleOn="Activar plato"
+                          titleOff="Desactivar plato"
+                          onToggle={(next) => toggleProductActive(p.id, next)}
+                        />
+                      )}
                     </div>
-                    {p.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.image_url}
-                        alt=""
-                        className="h-12 w-16 rounded-md object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
-                        <span className="font-display text-[10px] text-pine/40">DN</span>
-                      </div>
-                    )}
+                    <div className="flex justify-center">
+                      {byCategory ? (
+                        <ActiveToggle
+                          active={p.active}
+                          titleOn="Activar plato"
+                          titleOff="Desactivar plato"
+                          onToggle={(next) => toggleProductActive(p.id, next)}
+                        />
+                      ) : (
+                        p.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.image_url}
+                            alt=""
+                            className="h-12 w-16 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
+                            <span className="font-display text-[10px] text-pine/40">DN</span>
+                          </div>
+                        )
+                      )}
+                    </div>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-pine">{p.name}</p>
                       <p className="text-sm text-ink/55">{catName(p.category_id)}</p>
@@ -835,10 +858,16 @@ function CategoryList({
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-ink/10">
-          {categories.map((c) => {
+          {categories.map((c, i) => {
             const count = products.filter((p) => p.category_id === c.id).length;
             return (
               <li key={c.id} className="flex items-center gap-4 py-3">
+                <OrderButtons
+                  label={c.name}
+                  first={i === 0}
+                  last={i === categories.length - 1}
+                  onMove={(dir) => moveCategory(c.id, dir)}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-pine">{c.name}</p>
                   <p className="text-sm text-ink/55">
@@ -900,7 +929,6 @@ function SideForm({
 
       <form action={action} className="mt-5 flex flex-col gap-4">
         {side.id && <input type="hidden" name="id" value={side.id} />}
-        <input type="hidden" name="position" value={side.position} />
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="s-name" className="text-sm font-bold text-pine">
@@ -1012,8 +1040,14 @@ function SideList({
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-ink/10">
-          {sides.map((s) => (
+          {sides.map((s, i) => (
             <li key={s.id} className="flex items-center gap-4 py-3">
+              <OrderButtons
+                label={s.name}
+                first={i === 0}
+                last={i === sides.length - 1}
+                onMove={(dir) => moveSide(s.id, dir)}
+              />
               <ActiveToggle
                 active={s.active}
                 titleOn="Activar acompañamiento"
