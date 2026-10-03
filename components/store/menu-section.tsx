@@ -30,24 +30,24 @@ function ProductCard({
   }
 
   return (
-    <article className="group flex flex-row overflow-hidden rounded-lg bg-paper shadow-md shadow-ink/8 transition-transform duration-300 hover:-translate-y-1.5 sm:flex-col">
-      <div className="relative aspect-square w-28 shrink-0 overflow-hidden bg-cream sm:aspect-[4/3] sm:w-full">
+    <article className="group flex flex-row overflow-hidden rounded-lg bg-paper shadow-md shadow-ink/8 transition-transform duration-300 hover:-translate-y-1.5 lg:flex-col">
+      <div className="relative aspect-square w-2/5 shrink-0 overflow-hidden bg-cream lg:aspect-[4/3] lg:w-full">
         {product.image_url ? (
           <Image
             src={product.image_url}
             alt={product.name}
             fill
-            sizes="(max-width: 640px) 112px, (max-width: 1024px) 50vw, 33vw"
+            sizes="(max-width: 640px) 112px, (max-width: 1024px) 40vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <span className="font-display text-center text-lg text-pine/25 sm:text-4xl">
+            <span className="font-display text-center text-lg text-pine/25 lg:text-4xl">
               Divina Natales
             </span>
           </div>
         )}
-        <span aria-hidden className="tape hidden sm:block" />
+        <span aria-hidden className="tape hidden lg:block" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-4 sm:gap-2 sm:p-5">
@@ -55,7 +55,7 @@ function ProductCard({
           {product.name}
         </h3>
         {product.description && (
-          <p className="line-clamp-2 text-sm text-ink/65 sm:line-clamp-none">
+          <p className="line-clamp-2 text-sm text-ink/65 lg:line-clamp-none">
             {product.description}
           </p>
         )}
@@ -154,7 +154,7 @@ export function MenuSection({
             Estamos horneando esta sección. Vuelve pronto.
           </p>
         ) : (
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-7">
             {visible.map((p) => (
               <ProductCard
                 key={p.id}
