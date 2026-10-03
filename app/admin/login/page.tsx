@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "../actions";
 
@@ -11,7 +12,14 @@ export default function LoginPage() {
     <main className="paper-grain flex flex-1 items-center justify-center px-5 py-16">
       <div className="w-full max-w-sm">
         <div className="rounded-lg bg-paper p-8 shadow-lg shadow-ink/10">
-          <p className="font-hand text-center text-3xl text-butter-deep">
+          <Image
+            src="/logo-emblem.png"
+            alt="Divina Natales"
+            width={112}
+            height={112}
+            className="mx-auto h-24 w-24 object-contain sm:h-28 sm:w-28"
+          />
+          <p className="font-hand mt-2 text-center text-3xl text-butter-deep">
             cocina de Divina Natales
           </p>
           <h1 className="font-display mt-2 text-center text-3xl text-pine">

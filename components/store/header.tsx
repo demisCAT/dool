@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCart } from "./cart-provider";
 
 export function Header() {
@@ -8,10 +9,26 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-ink/10 bg-cream/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-        <a href="#inicio" className="flex items-baseline gap-2">
-          <span className="font-display text-2xl text-pine">Divina Natales</span>
-          <span className="font-hand hidden text-lg text-butter-deep sm:inline">
-            para llevar
+        <a
+          href="#inicio"
+          aria-label="Divina Natales, ir al inicio"
+          className="flex items-center gap-3"
+        >
+          <Image
+            src="/logo-emblem.png"
+            alt=""
+            width={48}
+            height={48}
+            priority
+            className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+          />
+          <span className="flex items-baseline gap-2">
+            <span className="font-display text-xl text-pine sm:text-2xl">
+              Divina Natales
+            </span>
+            <span className="font-hand hidden text-lg text-butter-deep sm:inline">
+              para llevar
+            </span>
           </span>
         </a>
 

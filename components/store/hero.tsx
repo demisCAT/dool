@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Chalkboard } from "./chalkboard";
 import type { Product } from "@/lib/types";
 
@@ -6,9 +7,19 @@ export function Hero({ products }: { products: Product[] }) {
     <section className="paper-grain border-b border-ink/10">
       <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 sm:py-20 lg:grid-cols-2 lg:items-center lg:py-24">
         <div className="text-center lg:text-left">
-          <p className="font-hand text-3xl text-butter-deep">
-            cocina casera · Natales
-          </p>
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
+            <Image
+              src="/logo-emblem.png"
+              alt="Divina Natales"
+              width={144}
+              height={144}
+              priority
+              className="h-28 w-28 -rotate-3 object-contain drop-shadow-md sm:h-36 sm:w-36"
+            />
+            <p className="font-hand text-3xl text-butter-deep">
+              cocina casera · Natales
+            </p>
+          </div>
           <h1 className="font-display mt-3 text-5xl leading-[1.05] text-pine sm:text-6xl lg:text-7xl">
             Comida casera,
             <br />
