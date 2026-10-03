@@ -3,19 +3,25 @@
 import { useEffect, useState } from "react";
 import type { Product, Side } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-
+import { type Pricing } from "@/lib/pricing";
 export function SideSelector({
   product,
   sides,
+  pricing,
   onAdd,
   onClose,
 }: {
   product: Product;
   sides: Side[];
+  pricing: Pricing;
   onAdd: (product: Product, side: Side | null) => void;
   onClose: () => void;
 }) {
   const [selectedKey, setSelectedKey] = useState<string>("");
+
+  const discount = Math.min(pricing.noSideDiscount, product.price);
+  const discountedPrice = Math.max(0, product.price - discount);
+  const showsDiscount = product.with_side && discount > 0;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -49,7 +55,16 @@ export function SideSelector({
           {product.name}
         </h3>
         <p className="mt-1 font-display text-lg text-butter-deep">
-          {formatPrice(product.price)}
+          {selectedKey === "none" && showsDiscount ? (
+            <>
+              <span className="mr-2 text-ink/40 line-through">
+                {formatPrice(product.price)}
+              </span>
+              {formatPrice(discountedPrice)}
+            </>
+          ) : (
+            formatPrice(product.price)
+          )}
         </p>
 
         <div role="radiogroup" aria-label="Acompañamientos" className="mt-5 flex flex-col gap-2">
@@ -97,8 +112,15 @@ export function SideSelector({
             <span className="min-w-0">
               <span className="block font-bold text-pine">Sin acompañamiento</span>
               <span className="block text-sm text-ink/60">
-                Solo el plato, sin acompañamiento.
+                {showsDiscount
+                  ? `Solo el plato · ${formatPrice(discountedPrice)}`
+                  : "Solo el plato, sin acompañamiento."}
               </span>
+              {showsDiscount && (
+                <span className="mt-1 inline-flex items-center rounded-full bg-butter/25 px-2.5 py-0.5 text-xs font-bold text-butter-deep">
+                  ahorras {formatPrice(discount)}
+                </span>
+              )}
             </span>
           </label>
         </div>

@@ -1,9 +1,11 @@
 import { formatPrice } from "./format";
+import { effectiveUnitPrice, itemsTotal, type Pricing } from "./pricing";
 import type { CartItem, OrderForm } from "./types";
 
 export function buildOrderMessage(
   items: CartItem[],
-  form: OrderForm
+  form: OrderForm,
+  pricing: Pricing
 ): string {
   const lines = items.map(({ product, qty, side }) => {
     const sideText = product.with_side
@@ -11,10 +13,11 @@ export function buildOrderMessage(
         ? ` (con ${side.name})`
         : " (sin acompañamiento)"
       : "";
-    return `• ${product.name}${sideText} ×${qty} — ${formatPrice(product.price * qty)}`;
+    const unit = effectiveUnitPrice(product, side, pricing);
+    return `• ${product.name}${sideText} ×${qty} — ${formatPrice(unit * qty)}`;
   });
 
-  const total = items.reduce((sum, { product, qty }) => sum + product.price * qty, 0);
+  const total = itemsTotal(items, pricing);
 
   const rows = [
     "¡Hola Divina Natales! Quiero hacer un pedido:",

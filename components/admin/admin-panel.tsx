@@ -26,6 +26,7 @@ import {
   markOrderReceived,
   deleteOrder,
   saveSettings,
+  saveNoSideDiscount,
   signOut,
 } from "@/app/admin/actions";
 import { ActiveToggle } from "./active-toggle";
@@ -81,6 +82,9 @@ export function AdminPanel({
     pendingDays: String(settings.pendingDays),
     receivedDays: String(settings.receivedDays),
   });
+  const [noSideDiscount, setNoSideDiscount] = useState(
+    String(settings.noSideDiscount)
+  );
 
   const [productState, productAction, productPending] = useActionState(
     saveProduct,
@@ -96,6 +100,10 @@ export function AdminPanel({
   });
   const [settingsState, settingsAction, settingsPending] = useActionState(
     saveSettings,
+    { error: null, ok: false }
+  );
+  const [discountState, discountAction, discountPending] = useActionState(
+    saveNoSideDiscount,
     { error: null, ok: false }
   );
 
@@ -352,6 +360,15 @@ export function AdminPanel({
                 sides={sides}
                 onEdit={startEditSide}
                 onAdd={startCreateSide}
+              />
+              <NoSideDiscountForm
+                key={`d-${formKey}`}
+                value={noSideDiscount}
+                setValue={setNoSideDiscount}
+                action={discountAction}
+                pending={discountPending}
+                state={discountState}
+                products={products}
               />
             </>
           ) : (
@@ -1081,6 +1098,95 @@ function SideList({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function NoSideDiscountForm({
+  value,
+  setValue,
+  action,
+  pending,
+  state,
+  products,
+}: {
+  value: string;
+  setValue: React.Dispatch<React.SetStateAction<string>>;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  state: { error: string | null; ok?: boolean };
+  products: Product[];
+}) {
+  const amount = Number(value);
+  const valid = Number.isInteger(amount) && amount > 0;
+
+  // Platos con acompañamiento cuyo precio quedaria en 0 o menos.
+  const wiped = valid
+    ? products
+        .filter((p) => p.with_side && p.price <= amount)
+        .map((p) => p.name)
+    : [];
+
+  return (
+    <section className="mt-10 border-t-2 border-dashed border-ink/10 pt-8">
+      <h2 className="font-display text-2xl text-pine">
+        Descuento sin acompañamiento
+      </h2>
+      <p className="mt-1 text-sm text-ink/60">
+        Monto que se rebaja a un plato cuando el cliente lo pide sin
+        acompañamiento. Aplica solo a platos que normalmente llevan uno.
+        Deja 0 para no aplicar descuento.
+      </p>
+
+      <form action={action} className="mt-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="no-side-discount" className="text-sm font-bold text-pine">
+            Descuento (CLP)
+          </label>
+          <input
+            id="no-side-discount"
+            name="no_side_discount"
+            type="number"
+            min={0}
+            step={1}
+            required
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="h-11 max-w-40 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+          />
+        </div>
+
+        {wiped.length > 0 && (
+          <p className="max-w-xl rounded-md bg-butter/20 px-3 py-2 text-sm font-semibold text-butter-deep">
+            Con este monto, {wiped.join(", ")} quedarían en $0
+            {wiped.length === 1 ? "" : " o menos"}. El precio nunca baja de $0.
+          </p>
+        )}
+
+        {state.error && (
+          <p
+            role="alert"
+            className="max-w-xl rounded-md bg-red-100 px-3 py-2 text-sm font-semibold text-red-800"
+          >
+            {state.error}
+          </p>
+        )}
+        {state.ok && (
+          <p className="rounded-md bg-green-100 px-3 py-2 text-sm font-semibold text-green-800">
+            Descuento guardado.
+          </p>
+        )}
+
+        <div className="flex">
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex h-11 items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
+          >
+            {pending ? "Guardando…" : "Guardar descuento"}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }

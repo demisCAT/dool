@@ -55,4 +55,5 @@ export interface Order {
 export interface RetentionSettings {
   pendingDays: number;
   receivedDays: number;
+  noSideDiscount: number;
 }

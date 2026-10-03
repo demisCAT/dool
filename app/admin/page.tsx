@@ -71,6 +71,7 @@ export default async function AdminPage() {
   const settings = {
     pendingDays: Number(settingsMap["order_retention_pending_days"] ?? 5),
     receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
+    noSideDiscount: Math.max(0, Number(settingsMap["no_side_discount"] ?? 0)),
   };
 
   return (

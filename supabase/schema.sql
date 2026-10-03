@@ -56,7 +56,8 @@ create table if not exists public.settings (
 
 insert into public.settings (key, value) values
   ('order_retention_pending_days', '5'),
-  ('order_retention_received_days', '30')
+  ('order_retention_received_days', '30'),
+  ('no_side_discount', '0')
 on conflict (key) do nothing;
 
 -- ============ RLS ============

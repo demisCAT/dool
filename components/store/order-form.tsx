@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart } from "./cart-provider";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { formatPrice } from "@/lib/format";
+import { effectiveUnitPrice, unitDiscount } from "@/lib/pricing";
 import { PhoneContact } from "./phone-contact";
 import { submitOrder } from "@/app/admin/actions";
 import type { OrderForm } from "@/lib/types";
@@ -20,7 +21,7 @@ const INITIAL_FORM: OrderForm = {
 };
 
 export function OrderForm() {
-  const { items, total, setQty, remove, clear } = useCart();
+  const { items, total, setQty, remove, clear, pricing } = useCart();
   const [form, setForm] = useState<OrderForm>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -29,6 +30,10 @@ export function OrderForm() {
   const [sent, setSent] = useState(false);
 
   const hasItems = items.length > 0;
+  const totalSaved = items.reduce(
+    (sum, i) => sum + unitDiscount(i.product, i.side, pricing) * i.qty,
+    0
+  );
   const phoneOk = form.phone.replace(/\D/g, "").length >= 8;
   const nameOk = form.name.trim().length >= 2;
   const formOk = nameOk && phoneOk && form.deliveryDate.length > 0;
@@ -48,7 +53,7 @@ export function OrderForm() {
       return;
     }
 
-    const url = buildWhatsAppUrl(buildOrderMessage(items, form));
+    const url = buildWhatsAppUrl(buildOrderMessage(items, form, pricing));
     setWhatsappUrl(url);
     window.open(url, "_blank", "noopener,noreferrer");
     setConfirmOpen(true);
@@ -113,7 +118,10 @@ export function OrderForm() {
               </div>
             ) : (
               <ul className="divide-y divide-ink/10 rounded-lg bg-cream shadow-md shadow-ink/6">
-                {items.map(({ product, qty, side }) => (
+                {items.map(({ product, qty, side }) => {
+                  const unit = effectiveUnitPrice(product, side, pricing);
+                  const saved = unitDiscount(product, side, pricing);
+                  return (
                   <li key={`${product.id}:${side?.id ?? "none"}`} className="flex items-center gap-4 p-4">
                     {product.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -139,7 +147,17 @@ export function OrderForm() {
                         </p>
                       )}
                       <p className="text-sm text-ink/60">
-                        {formatPrice(product.price)}
+                        {saved > 0 && (
+                          <span className="mr-2 text-ink/40 line-through">
+                            {formatPrice(product.price)}
+                          </span>
+                        )}
+                        {formatPrice(unit)}
+                        {saved > 0 && (
+                          <span className="ml-2 font-bold text-butter-deep">
+                            ahorras {formatPrice(saved)}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -172,10 +190,16 @@ export function OrderForm() {
                       quitar
                     </button>
                   </li>
-                ))}
+                  );
+                })}
                 <li className="flex items-center justify-between p-4">
                   <span className="font-display text-xl text-pine">Total</span>
                   <span className="font-display text-2xl text-butter-deep">
+                    {totalSaved > 0 && (
+                      <span className="mr-2 text-lg text-ink/40 line-through">
+                        {formatPrice(total + totalSaved)}
+                      </span>
+                    )}
                     {formatPrice(total)}
                   </span>
                 </li>

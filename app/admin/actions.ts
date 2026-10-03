@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
+import { itemsTotal, parsePricing, NO_SIDE_DISCOUNT_KEY } from "@/lib/pricing";
 import type { CartItem, OrderForm } from "@/lib/types";
 
 export async function signIn(
@@ -466,12 +467,23 @@ export async function submitOrder(
     return { error: "Tu pedido está vacío." };
   }
 
-  const total = items.reduce(
-    (sum, i) => sum + Number(i.product.price) * Number(i.qty),
-    0
-  );
-
   const supabase = await createServerClientInstance();
+
+  // El descuento por "sin acompañamiento" se recalcula en el servidor:
+  // nunca confiar en el total que llega desde el cliente.
+  const { data: settingsRows } = await supabase
+    .from("settings")
+    .select("key, value");
+  const pricing = parsePricing(
+    Object.fromEntries(
+      (settingsRows ?? []).map((r: { key: string; value: string }) => [
+        r.key,
+        r.value,
+      ])
+    )
+  );
+  const total = itemsTotal(items, pricing);
+
   const { error } = await supabase.from("orders").insert({
     name,
     phone,
@@ -512,6 +524,36 @@ export async function deleteOrder(id: string) {
     // silencioso
   }
   revalidatePath("/admin");
+}
+
+export async function saveNoSideDiscount(
+  _prev: { error: string | null; ok?: boolean },
+  formData: FormData
+): Promise<{ error: string | null; ok?: boolean }> {
+  const raw = Number(formData.get("no_side_discount") ?? 0);
+
+  if (!Number.isInteger(raw) || raw < 0) {
+    return { error: "El descuento debe ser un número entero en pesos (0 o más)." };
+  }
+
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase
+      .from("settings")
+      .upsert([{ key: NO_SIDE_DISCOUNT_KEY, value: String(raw) }]);
+    if (error) throw error;
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo guardar el descuento.",
+    };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null, ok: true };
 }
 
 export async function saveSettings(

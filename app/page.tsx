@@ -14,12 +14,12 @@ export default async function Home() {
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-  const { categories, products, sides } = hasEnv
+  const { categories, products, sides, pricing } = hasEnv
     ? await getStoreData()
-    : { categories: [], products: [], sides: [] };
+    : { categories: [], products: [], sides: [], pricing: { noSideDiscount: 0 } };
 
   return (
-    <CartProvider>
+    <CartProvider pricing={pricing}>
       <div id="inicio" className="flex min-h-full flex-1 flex-col">
         <Header />
         <main className="flex-1">

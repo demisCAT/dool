@@ -89,7 +89,7 @@ export function MenuSection({
   products: Product[];
   sides: Side[];
 }) {
-  const { add } = useCart();
+  const { add, pricing } = useCart();
   const [activeId, setActiveId] = useState<string | null>(
     categories[0]?.id ?? null
   );
@@ -109,6 +109,7 @@ export function MenuSection({
           key={pickerProduct.id}
           product={pickerProduct}
           sides={sides}
+          pricing={pricing}
           onAdd={(product, side) => {
             add(product, side);
             setPickerProduct(null);

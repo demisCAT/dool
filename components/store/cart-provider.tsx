@@ -11,11 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import type { CartItem, Product, Side } from "@/lib/types";
+import { itemsTotal, type Pricing } from "@/lib/pricing";
 
 interface CartContextValue {
   items: CartItem[];
   total: number;
   count: number;
+  pricing: Pricing;
   add: (product: Product, side: Side | null) => void;
   remove: (productId: string, side: Side | null) => void;
   setQty: (productId: string, side: Side | null, qty: number) => void;
@@ -30,7 +32,13 @@ function itemKey(productId: string, side: Side | null): string {
   return side ? `${productId}:${side.id}` : productId;
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  children,
+  pricing,
+}: {
+  children: ReactNode;
+  pricing: Pricing;
+}) {
   const [items, setItems] = useState<CartItem[]>([]);
   const hydrated = useRef(false);
 
@@ -96,13 +104,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(() => setItems([]), []);
 
   const value = useMemo<CartContextValue>(() => {
-    const total = items.reduce(
-      (sum, i) => sum + i.product.price * i.qty,
-      0
-    );
+    const total = itemsTotal(items, pricing);
     const count = items.reduce((sum, i) => sum + i.qty, 0);
-    return { items, total, count, add, remove, setQty, clear };
-  }, [items, add, remove, setQty, clear]);
+    return { items, total, count, pricing, add, remove, setQty, clear };
+  }, [items, pricing, add, remove, setQty, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
