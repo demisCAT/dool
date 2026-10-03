@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { Category, Product, Side } from "@/lib/types";
 import { useCart } from "./cart-provider";
 import { SideSelector } from "./side-selector";
@@ -29,41 +30,43 @@ function ProductCard({
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-lg bg-paper shadow-md shadow-ink/8 transition-transform duration-300 hover:-translate-y-1.5">
-      <div className="relative aspect-[4/3] overflow-hidden bg-cream">
+    <article className="group flex flex-row overflow-hidden rounded-lg bg-paper shadow-md shadow-ink/8 transition-transform duration-300 hover:-translate-y-1.5 sm:flex-col">
+      <div className="relative aspect-square w-28 shrink-0 overflow-hidden bg-cream sm:aspect-[4/3] sm:w-full">
         {product.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={product.image_url}
             alt={product.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 112px, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <span className="font-display text-4xl text-pine/25">
+            <span className="font-display text-center text-lg text-pine/25 sm:text-4xl">
               Divina Natales
             </span>
           </div>
         )}
-        <span aria-hidden className="tape" />
+        <span aria-hidden className="tape hidden sm:block" />
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        <h3 className="font-display text-xl leading-snug text-pine">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-4 sm:gap-2 sm:p-5">
+        <h3 className="font-display text-lg leading-snug text-pine sm:text-xl">
           {product.name}
         </h3>
         {product.description && (
-          <p className="text-sm text-ink/65">{product.description}</p>
+          <p className="line-clamp-2 text-sm text-ink/65 sm:line-clamp-none">
+            {product.description}
+          </p>
         )}
-        <div className="mt-auto flex items-center justify-between pt-3">
-          <span className="font-display text-2xl text-butter-deep">
+        <div className="mt-auto flex items-center justify-between gap-3 pt-2 sm:pt-3">
+          <span className="font-display text-xl text-butter-deep sm:text-2xl">
             {formatPrice(product.price)}
           </span>
           <button
             type="button"
             onClick={handleAdd}
-            className={`inline-flex h-10 items-center rounded-full px-5 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep ${
+            className={`inline-flex h-9 items-center rounded-full px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-butter-deep sm:h-10 sm:px-5 ${
               added
                 ? "bg-pine text-chalk"
                 : "bg-butter text-ink hover:bg-butter-deep hover:text-cream"
@@ -151,7 +154,7 @@ export function MenuSection({
             Estamos horneando esta sección. Vuelve pronto.
           </p>
         ) : (
-          <div className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">
             {visible.map((p) => (
               <ProductCard
                 key={p.id}
