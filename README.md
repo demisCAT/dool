@@ -1,88 +1,100 @@
 # Divina Natales
 
-Tienda web de comida casera para llevar. Los clientes eligen sus platos, completan sus datos de contacto y el pedido se envía armado a WhatsApp. Incluye panel de administración para gestionar productos, categorías y fotografías.
+Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona retiro en local o despacho a domicilio, completa sus datos y envía el pedido por WhatsApp. El pedido se guarda también en Supabase y se gestiona desde `/admin`. Precios en CLP; interfaz en español.
 
 ## Funcionalidades
 
-**Tienda**
+### Tienda (`/`)
 
-- Catálogo de productos agrupados por categorías, con fotografías y precios en CLP
-- Carrito de compras persistente (localStorage)
-- Formulario de contacto: nombre, teléfono, fecha de entrega y nota
-- Envío del pedido a WhatsApp con mensaje pre-armado (nombre, items, total y datos)
+- Catálogo de productos **activos** agrupados por categoría; la pizarra del inicio muestra hasta **8 platos principales activos** (categoría con slug `platos-principales`). Si no hay, muestra un aviso, no productos ficticios.
+- Tarjetas compactas con foto a la izquierda en móvil y tablet; en escritorio, tarjetas verticales. Las fotografías del menú se sirven mediante `next/image`.
+- Carrito persistente en `localStorage`, con variantes por acompañamiento y cantidades.
+- Para platos marcados «con acompañamiento», selector de una opción activa o «Sin acompañamiento». Esta última aplica un **descuento fijo global por unidad**, configurable en admin; el precio nunca baja de $0.
+- Formulario con nombre, teléfono, fecha, modalidad obligatoria (**Retiro en local** o **Despacho a domicilio**) y nota opcional. El despacho exige dirección y añade una **tarifa fija por pedido**, no por producto. Se muestran subtotal, tarifa y total.
+- Antes de abrir WhatsApp, el pedido se guarda en Supabase. El mensaje incluye modalidad, dirección cuando corresponde, desglose, total y fecha en formato `dd-MM-yyyy`. Tras abrir WhatsApp, el cliente confirma manualmente si lo envió.
+- Dirección del local (Carlos Condell 1546, Puerto Natales, Chile) con enlace a Google Maps en «Cómo pedir» y en el pie de página. El número telefónico se revela solo al hacer clic para reducir la captación por bots.
 
-**Administración (`/admin`)**
+### Administración (`/admin`)
 
-- Login con correo y contraseña (Supabase Auth)
-- Alta, edición y borrado de productos
-- Subida de fotografías con vista previa
-- Productos ocultos/visibles y orden de aparición
-- Gestión de categorías
+- Acceso con Supabase Auth; sin variables de Supabase se muestra una pantalla de configuración.
+- Productos: alta, edición, borrado, disponibilidad, fotografías (Storage público) y selección de categoría/acompañamiento. Al filtrar por categoría se muestran en orden de tienda y se pueden reordenar con flechas; en «Todas» se listan alfabéticamente.
+- Categorías y acompañamientos: gestión y orden manual mediante flechas. Los acompañamientos tienen disponibilidad independiente.
+- «Acompañamientos»: ajuste global **Descuento sin acompañamiento** en CLP (0 lo desactiva).
+- «Pedidos»: listado con estado, modalidad, dirección si es despacho, tarifa aplicada y total. Filtro por fecha, «Marcar recibido» y «Borrar».
+- Después del listado: **Vencimiento de pedidos** (días para pendientes y recibidos) y, a continuación, **Tarifa de despacho** en CLP (0 permite despacho gratis).
+- Limpieza de pedidos vencidos al abrir el admin y mediante cron diario de Vercel.
 
 ## Stack
 
-- [Next.js 16](https://nextjs.org) (App Router, Server Actions, Tailwind CSS 4)
-- [Supabase](https://supabase.com): PostgreSQL, Auth y Storage de imágenes
-- WhatsApp: enlace `wa.me` (sin API, sin costo)
+- Next.js 16.3 (App Router, React 19, Server Actions), Tailwind CSS 4.
+- Supabase: PostgreSQL con RLS, Auth y Storage de imágenes.
+- WhatsApp mediante enlaces `wa.me`; no se usa la API de WhatsApp Business.
 
 ## Configuración
 
-### 1. Crear el proyecto en Supabase
+### 1. Base de datos
 
-1. Crea una cuenta y un proyecto en [supabase.com](https://supabase.com).
-2. En **SQL Editor → New query**, pega y ejecuta el contenido de [`supabase/schema.sql`](supabase/schema.sql). Crea las tablas, las políticas de seguridad y el bucket de fotos.
+**Proyecto nuevo:** ejecuta [`supabase/schema.sql`](supabase/schema.sql) en Supabase → SQL Editor. Crea tablas, políticas RLS, función de limpieza, bucket público `products` y categorías/acompañamientos de ejemplo. Personaliza los datos desde el admin.
+
+**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Para habilitar retiro/despacho, ejecuta [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql) en SQL Editor. Agrega modalidad, dirección y tarifa a `orders`, y la clave `delivery_fee` a `settings`; los pedidos antiguos quedan como retiro sin tarifa. El `schema.sql` refleja el estado final de la base. El descuento `no_side_discount` puede crearse/actualizarse al guardarlo por primera vez en el admin.
 
 ### 2. Variables de entorno
 
-Copia el archivo de ejemplo y completa los valores:
-
-```bash
-cp .env.example .env.local
-```
+Copia `.env.example` a `.env.local` y completa:
 
 | Variable | Descripción |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto (Settings → API → Project URL) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública (Settings → API → anon public) |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio solo con dígitos, con código de país. Ej. Chile: `56912345678` |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública anon de Supabase; la seguridad depende de RLS |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio, solo dígitos y con código de país (Chile: `56912345678`) |
+| `CRON_SECRET` | Secreto **solo del servidor** para proteger `/api/cron/cleanup-orders`; configurar en Vercel si se usa el cron |
 
-### 3. Crear la cuenta de administrador
+No uses la clave `service_role` en el cliente ni en variables `NEXT_PUBLIC_*`.
 
-1. En Supabase: **Authentication → Users → Add user** y crea tu usuario con correo y contraseña.
-2. Recomendado: en **Authentication → Providers → Email**, desactiva "Enable email signups" para que nadie más pueda registrarse.
-3. Entra a `/admin` y usa esas credenciales.
+### 3. Administrador y tarifas
 
-## Desarrollo
+1. Crea el usuario en Supabase → Authentication → Users (confirma el correo); desactiva los registros públicos por email si no los necesitas.
+2. Entra a `/admin` con ese usuario.
+3. Configura «Descuento sin acompañamiento» en **Acompañamientos** y «Tarifa de despacho» en **Pedidos**; ambos usan `0` por defecto.
+4. Agrega y activa productos; marca «con acompañamiento» solo donde corresponda.
+
+## Desarrollo y despliegue
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000). El panel de administración está en `/admin`.
-
-## Producción
+Abre la URL indicada por Next.js (habitualmente `http://localhost:3000`). Para verificar cambios y servir el build:
 
 ```bash
+npm run lint
 npm run build
 npm run start
 ```
 
-También puedes desplegar en [Vercel](https://vercel.com): importa el repositorio y configura las mismas variables de entorno en el panel del proyecto.
+No hay suite de tests automatizada. El despliegue en Vercel requiere las variables anteriores; `vercel.json` programa `/api/cron/cleanup-orders` a las 04:00 UTC. Al modificar dependencias, revisa `npm audit`.
 
-## Estructura
+## Precios y pedidos
 
+`lib/pricing.ts` centraliza el descuento por «Sin acompañamiento», el subtotal de productos y el total con despacho. El descuento aplica solo a productos `with_side` seleccionados sin acompañamiento; la tarifa de despacho se suma **una vez** solo al elegir domicilio. Ambas cantidades se leen de `settings` y el servidor recalcula el total antes de guardar el pedido; la interfaz y el mensaje de WhatsApp muestran el desglose.
+
+La tabla `orders` conserva modalidad (`fulfillment_mode`: `pickup`/`delivery`), dirección (`address`), tarifa cobrada (`delivery_fee`), artículos y total. Los artículos nuevos guardan un `unit_price` calculado para mantener el precio histórico en el admin; los pedidos antiguos siguen siendo legibles. El carrito continúa en `localStorage` hasta que el cliente confirma el envío por WhatsApp.
+
+## Estructura principal
+
+```text
+app/page.tsx                 Tienda (server component, force-dynamic)
+app/admin/                  Panel, login y Server Actions
+app/api/cron/               Limpieza automática de pedidos
+components/store/           Menú, pizarra, carrito y pedido
+components/admin/           Panel de productos, pedidos y ajustes
+lib/pricing.ts              Cálculo de precios y tarifa
+lib/whatsapp.ts             Mensaje y URL de wa.me
+lib/location.ts             Dirección pública y enlace a Maps
+lib/supabase/               Clientes y consultas públicas
+supabase/schema.sql         Esquema completo para proyectos nuevos
+supabase/delivery-migration.sql  Actualización para bases existentes
 ```
-app/
-  page.tsx               # Tienda (server component)
-  admin/                 # Panel de administración (login + CRUD)
-  globals.css            # Tokens de diseño (pino, ámbar, kraft) y animaciones
-components/
-  store/                 # Header, hero, pizarra, menú, carrito, pedido, footer
-  admin/                 # Panel con formularios y subida de fotos
-lib/
-  supabase/              # Clientes (servidor/navegador) y consultas
-  types.ts               # Tipos compartidos
-  whatsapp.ts            # Armado del mensaje y enlace wa.me
-supabase/schema.sql      # Tablas, RLS y bucket de imágenes
-```
+
+Los iconos de marca están en `app/favicon.ico`, `app/icon.png` y `app/apple-icon.png`. El emblema de la tienda está en `public/logo-emblem.png`; el footer permanece tipográfico.

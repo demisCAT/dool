@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Divina Natales
 
-Tienda de comida casera para llevar (Chile, precios CLP). Cliente elige platos, completa datos y el pedido se envía por `wa.me`. Panel admin en `/admin` con Supabase Auth. Textos de UI en español, sin emojis.
+Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chile; precios CLP). El cliente elige platos y modalidad, completa datos y el pedido se guarda en Supabase antes de abrir `wa.me`. Panel admin en `/admin` con Supabase Auth. Textos de UI en español, sin emojis.
 
 ## Comandos
 
@@ -31,14 +31,16 @@ Tienda de comida casera para llevar (Chile, precios CLP). Cliente elige platos, 
 ## Supabase
 
 - Clientes: `lib/supabase/server.ts` (lee cookies), `lib/supabase/client.ts` (browser, para subir fotos), consultas públicas en `lib/supabase/queries.ts`.
-- RLS: lectura pública; escritura solo `authenticated` (admin). Todo cambio de tablas/policies/buckets debe reflejarse en `supabase/schema.sql`.
+- RLS: lectura pública de catálogo/ajustes; escritura administrativa solo `authenticated`. `orders` admite inserción anónima, pero lectura/edición/borrado solo admin. Todo cambio de tablas/policies/buckets debe reflejarse en `supabase/schema.sql`.
 - CRUD por Server Actions en `app/admin/actions.ts`; flujo de foto: upload desde navegador → URL pública → acción con `image_url`.
+- Esquema completo para proyectos nuevos: `supabase/schema.sql`. Para añadir campos de despacho a bases existentes: `supabase/delivery-migration.sql` (no volver a ejecutar todo `schema.sql`: recrea políticas).
+- `orders` guarda `fulfillment_mode` (`pickup`/`delivery`), `address`, `delivery_fee` aplicado, `items` JSON y `total`. Los pedidos antiguos migrados quedan como retiro sin tarifa. `settings` guarda `delivery_fee`, `no_side_discount` y los días de retención. El cron requiere `CRON_SECRET` solo en servidor/Vercel.
 - Sin env de Supabase la app debe seguir funcionando: `/` muestra banner, `/admin` muestra pantalla de configuración (guards con `hasEnv`).
 
 ## Seguridad
 
 - Solo usar claves públicas en el cliente. Jamás agregar la `service_role` key a `.env*` ni a variables `NEXT_PUBLIC_*`; la anon key es pública por diseño — la frontera real de seguridad es RLS.
-- Toda acción de escritura en `app/admin/actions.ts` debe pasar por `requireUser()` (verificación de sesión). No agregar acciones de escritura sin ese check, aunque RLS ya protege.
+- Toda acción de escritura **administrativa** en `app/admin/actions.ts` debe pasar por `requireUser()` (verificación de sesión), aunque RLS ya proteja. Excepción explícita: `submitOrder` es público para permitir pedidos anónimos; valida modalidad/dirección y recalcula descuentos/tarifa desde `settings` en servidor antes de insertar (RLS permite `insert` público en `orders`).
 - Mantener genérico el mensaje de error del login ("Credenciales incorrectas") para no revelar si el correo existe.
 - Subida de fotos: validar MIME `image/*` y tamaño (5 MB) antes de subir; el path se genera con `crypto.randomUUID()` (nunca usar input del usuario en el path); el bucket `products` es público por diseño — no guardar ahí nada privado.
 - `window.open` del enlace wa.me debe conservar `noopener,noreferrer` (anti-tabnabbing).
@@ -50,14 +52,17 @@ Tienda de comida casera para llevar (Chile, precios CLP). Cliente elige platos, 
 
 - Tailwind 4; tokens en `@theme` de `app/globals.css` (pino, ámbar, kraft, chalk; fuentes Gloock/Karla/Caveat). Reutilizar tokens, no inventar colores.
 - Moneda siempre CLP vía `formatPrice` de `lib/format.ts`.
+- Descuento «Sin acompañamiento»: monto fijo por unidad de un producto `with_side` con `side === null`, tope $0. Despacho: tarifa fija por pedido, retiro gratis. Usar `lib/pricing.ts` para todos los totales y `lib/whatsapp.ts` para el mensaje; fecha de WhatsApp `dd-MM-yyyy` vía `formatWhatsAppDate`.
+- Pizarra: hasta 8 productos **activos** de la categoría `platos-principales`, por posición; sin productos, muestra mensaje. Fotos del catálogo con `next/image`; carrito con `localStorage`.
+- Admin: flechas para ordenar categorías/acompañamientos/productos (productos por categoría seleccionada); «Descuento sin acompañamiento» en Acompañamientos y «Tarifa de despacho» **después** de «Vencimiento de pedidos» en Pedidos.
 - WhatsApp: mensaje armado en `lib/whatsapp.ts`; número solo dígitos en `NEXT_PUBLIC_WHATSAPP_NUMBER`.
 
 ## Entorno
 
-`.env.local` (gitignored) con `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_WHATSAPP_NUMBER`. Ver `.env.example`.
+`.env.local` (gitignored) con `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_WHATSAPP_NUMBER`; `CRON_SECRET` en Vercel/servidor para el cron. Ver `.env.example` y `README.md`.
 
 ## Estructura
 
 - `app/` — tienda (`/`) y admin (`/admin`, `/admin/login`); `page.tsx` de la tienda es server component (`force-dynamic`)
 - `components/store/` — UI tienda (carrito con localStorage en `cart-provider.tsx`); `components/admin/` — panel
-- `lib/` — clientes Supabase, `types.ts`, `format.ts`, `whatsapp.ts`
+- `lib/` — clientes Supabase, `types.ts`, `format.ts`, `pricing.ts`, `whatsapp.ts`, `location.ts`
