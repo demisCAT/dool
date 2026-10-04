@@ -6,7 +6,6 @@ import {
   orderTotal,
   type Pricing,
 } from "./pricing";
-import { formatDistance } from "./distance";
 import type { CartItem, OrderForm } from "./types";
 
 /**
@@ -65,10 +64,7 @@ export function buildOrderMessage(
     "",
     `Subtotal: ${formatPrice(total)}`,
     ...(isDelivery && deliveryDistanceMeters !== null
-      ? [
-          `Distancia en línea recta: ${formatDistance(deliveryDistanceMeters)}`,
-          `Despacho a domicilio: ${formatPrice(deliveryFee ?? 0)}`,
-        ]
+      ? [`Despacho a domicilio: ${formatPrice(deliveryFee ?? 0)}`]
       : []),
     `Total: ${formatPrice(
       orderTotal(items, pricing, form.fulfillmentMode, deliveryDistanceMeters)
