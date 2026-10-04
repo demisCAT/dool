@@ -11,17 +11,28 @@ import type { CartItem, OrderForm } from "./types";
 
 /**
  * Acorta una dirección de Google Maps para el mensaje de WhatsApp:
- * elimina la comuna y la región ("Natales, Magallanes y la Antártica
- * Chilena") y, si viene junto, el país ("Chile" o "CL").
+ * elimina la comuna, la región y el país que vienen al final
+ * ("Natales, Magallanes y la Antártica Chilena, Chile"), con o sin
+ * código postal ("6160000 Natales") y cualquier variante de la región.
  */
 function shortenDeliveryAddress(address: string): string {
-  return address
-    .replace(
-      /,\s*(?:Puerto\s+)?Natales\s*,\s*(?:Regi[oó]n\s+de\s+)?Magallanes\s+y\s+(?:de\s+la\s+)?Ant[aá]rtica\s+Chilena(?:\s*,\s*(?:Chile|CL))?$/i,
-      ""
-    )
-    .replace(/,\s*(?:Puerto\s+)?Natales\s*,\s*(?:Chile|CL)$/i, "")
-    .trim();
+  const parts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  // Descarta desde el final los segmentos de comuna, región o país.
+  while (parts.length > 1) {
+    const last = parts[parts.length - 1].toLowerCase();
+    const isLocalityPart =
+      last.includes("natales") ||
+      last.includes("magallanes") ||
+      last.includes("antártica") ||
+      last.includes("antartica") ||
+      /^(chile|cl)$/.test(last);
+    if (!isLocalityPart) break;
+    parts.pop();
+  }
+  return parts.join(", ");
 }
 
 export function buildOrderMessage(
