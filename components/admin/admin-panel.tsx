@@ -339,13 +339,6 @@ export function AdminPanel({
             </>
           ) : tab === "pedidos" ? (
             <>
-              <DeliveryFeeForm
-                value={deliveryFee}
-                onChange={setDeliveryFee}
-                action={feeAction}
-                pending={feePending}
-                state={feeState}
-              />
               <OrderList orders={orders} />
               <RetentionForm
                 key={`r-${formKey}`}
@@ -354,6 +347,13 @@ export function AdminPanel({
                 action={settingsAction}
                 pending={settingsPending}
                 state={settingsState}
+              />
+              <DeliveryFeeForm
+                value={deliveryFee}
+                onChange={setDeliveryFee}
+                action={feeAction}
+                pending={feePending}
+                state={feeState}
               />
             </>
           ) : tab === "acompanamientos" ? (
