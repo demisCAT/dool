@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useCart } from "./cart-provider";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { formatPrice } from "@/lib/format";
-import { effectiveUnitPrice, unitDiscount } from "@/lib/pricing";
+import { effectiveUnitPrice, orderTotal, unitDiscount } from "@/lib/pricing";
 import { PhoneContact } from "./phone-contact";
 import { submitOrder } from "@/app/admin/actions";
 import type { OrderForm } from "@/lib/types";
@@ -17,6 +17,8 @@ const INITIAL_FORM: OrderForm = {
   name: "",
   phone: "",
   deliveryDate: today(),
+  fulfillmentMode: "",
+  address: "",
   note: "",
 };
 
@@ -36,7 +38,12 @@ export function OrderForm() {
   );
   const phoneOk = form.phone.replace(/\D/g, "").length >= 8;
   const nameOk = form.name.trim().length >= 2;
-  const formOk = nameOk && phoneOk && form.deliveryDate.length > 0;
+  const modeOk = form.fulfillmentMode === "pickup" || form.fulfillmentMode === "delivery";
+  const addressOk = form.fulfillmentMode !== "delivery" ||
+    (form.address.trim().length >= 5 && form.address.trim().length <= 300);
+  const formOk = nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk;
+  const deliveryFee = form.fulfillmentMode === "delivery" ? pricing.deliveryFee : 0;
+  const finalTotal = orderTotal(items, pricing, form.fulfillmentMode);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +60,8 @@ export function OrderForm() {
       return;
     }
 
-    const url = buildWhatsAppUrl(buildOrderMessage(items, form, pricing));
+    // Usar la tarifa confirmada por el servidor si cambió mientras la página estaba abierta.
+    const url = buildWhatsAppUrl(buildOrderMessage(items, form, res.pricing ?? pricing));
     setWhatsappUrl(url);
     window.open(url, "_blank", "noopener,noreferrer");
     setConfirmOpen(true);
@@ -192,15 +200,27 @@ export function OrderForm() {
                   </li>
                   );
                 })}
-                <li className="flex items-center justify-between p-4">
-                  <span className="font-display text-xl text-pine">Total</span>
-                  <span className="font-display text-2xl text-butter-deep">
+                <li className="flex items-center justify-between gap-3 p-4">
+                  <span className="font-semibold text-pine">Subtotal</span>
+                  <span className="text-right font-display text-lg text-butter-deep">
                     {totalSaved > 0 && (
-                      <span className="mr-2 text-lg text-ink/40 line-through">
+                      <span className="mr-2 text-sm text-ink/40 line-through">
                         {formatPrice(total + totalSaved)}
                       </span>
                     )}
                     {formatPrice(total)}
+                  </span>
+                </li>
+                {form.fulfillmentMode === "delivery" && (
+                  <li className="flex items-center justify-between gap-3 px-4 pb-4 text-sm">
+                    <span className="font-semibold text-pine">Despacho a domicilio</span>
+                    <span>{formatPrice(deliveryFee)}</span>
+                  </li>
+                )}
+                <li className="flex items-center justify-between gap-3 border-t border-ink/10 p-4">
+                  <span className="font-display text-xl text-pine">Total</span>
+                  <span className="font-display text-2xl text-butter-deep">
+                    {formatPrice(finalTotal)}
                   </span>
                 </li>
               </ul>
@@ -247,7 +267,7 @@ export function OrderForm() {
                 htmlFor="deliveryDate"
                 className="text-sm font-bold text-pine"
               >
-                Fecha de entrega
+                Fecha de retiro o entrega
               </label>
               <input
                 id="deliveryDate"
@@ -261,6 +281,46 @@ export function OrderForm() {
                 className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink focus:border-butter-deep focus:outline-none"
               />
             </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor="fulfillment-mode" className="text-sm font-bold text-pine">
+                ¿Cómo recibirás tu pedido?
+              </label>
+              <select
+                id="fulfillment-mode"
+                required
+                value={form.fulfillmentMode}
+                onChange={(e) => {
+                  const fulfillmentMode = e.target.value as typeof form.fulfillmentMode;
+                  setForm({ ...form, fulfillmentMode, address: fulfillmentMode === "delivery" ? form.address : "" });
+                }}
+                className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink focus:border-butter-deep focus:outline-none"
+              >
+                <option value="" disabled>Selecciona una opción</option>
+                <option value="pickup">Retiro en local · sin costo</option>
+                <option value="delivery">Despacho a domicilio · {formatPrice(pricing.deliveryFee)}</option>
+              </select>
+            </div>
+
+            {form.fulfillmentMode === "delivery" && (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="delivery-address" className="text-sm font-bold text-pine">
+                  Dirección de entrega
+                </label>
+                <input
+                  id="delivery-address"
+                  type="text"
+                  required
+                  minLength={5}
+                  maxLength={300}
+                  autoComplete="street-address"
+                  placeholder="Calle, número y referencias"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink placeholder:text-ink/35 focus:border-butter-deep focus:outline-none"
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <label htmlFor="note" className="text-sm font-bold text-pine">

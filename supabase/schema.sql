@@ -40,6 +40,9 @@ create table if not exists public.orders (
   name text not null,
   phone text not null,
   delivery_date date not null,
+  fulfillment_mode text not null default 'pickup' check (fulfillment_mode in ('pickup', 'delivery')),
+  address text not null default '',
+  delivery_fee integer not null default 0 check (delivery_fee >= 0),
   note text not null default '',
   items jsonb not null,
   total integer not null check (total >= 0),
@@ -57,7 +60,8 @@ create table if not exists public.settings (
 insert into public.settings (key, value) values
   ('order_retention_pending_days', '5'),
   ('order_retention_received_days', '30'),
-  ('no_side_discount', '0')
+  ('no_side_discount', '0'),
+  ('delivery_fee', '0')
 on conflict (key) do nothing;
 
 -- ============ RLS ============

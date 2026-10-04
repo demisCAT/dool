@@ -6,6 +6,11 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
+/** Convierte una fecha ISO (yyyy-MM-dd) a dd-MM-yyyy sin cambiar de zona horaria. */
+export function formatWhatsAppDate(value: string): string {
+  return value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3-$2-$1");
+}
+
 export function formatDate(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;

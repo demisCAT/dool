@@ -28,8 +28,8 @@ export function Hero({ products }: { products: Product[] }) {
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-lg text-ink/75 lg:mx-0">
-            Elige tus platos, mándanos el pedido por WhatsApp y pasa a
-            retirarlo. Hecho en casa, todos los días.
+            Elige tus platos, mándanos el pedido por WhatsApp y retíralo en el
+            local o recíbelo en tu domicilio. Hecho en casa, todos los días.
           </p>
 
           <div className="mt-9 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">

@@ -1,5 +1,5 @@
-import { formatPrice } from "./format";
-import { effectiveUnitPrice, itemsTotal, type Pricing } from "./pricing";
+import { formatPrice, formatWhatsAppDate } from "./format";
+import { effectiveUnitPrice, itemsTotal, orderTotal, type Pricing } from "./pricing";
 import type { CartItem, OrderForm } from "./types";
 
 export function buildOrderMessage(
@@ -18,17 +18,22 @@ export function buildOrderMessage(
   });
 
   const total = itemsTotal(items, pricing);
+  const isDelivery = form.fulfillmentMode === "delivery";
 
   const rows = [
     "¡Hola Divina Natales! Quiero hacer un pedido:",
     "",
     ...lines,
     "",
-    `Total: ${formatPrice(total)}`,
+    `Subtotal: ${formatPrice(total)}`,
+    ...(isDelivery ? [`Despacho a domicilio: ${formatPrice(pricing.deliveryFee)}`] : []),
+    `Total: ${formatPrice(orderTotal(items, pricing, form.fulfillmentMode))}`,
     "",
     `Nombre: ${form.name}`,
     `Teléfono: ${form.phone}`,
-    `Fecha de entrega: ${form.deliveryDate}`,
+    `Modalidad: ${isDelivery ? "Despacho a domicilio" : "Retiro en local"}`,
+    ...(isDelivery ? [`Dirección de entrega: ${form.address.trim()}`] : []),
+    `Fecha de ${isDelivery ? "entrega" : "retiro"}: ${formatWhatsAppDate(form.deliveryDate)}`,
   ];
 
   if (form.note.trim()) {

@@ -13,8 +13,8 @@ const STEPS = [
   },
   {
     n: "3",
-    title: "Retira y disfruta",
-    text: "Pasa a buscar tu comida calentita y lista para servir.",
+    title: "Recibe y disfruta",
+    text: "Retira en el local o pide despacho a domicilio.",
   },
 ];
 

@@ -57,7 +57,7 @@ export default async function AdminPage() {
 
   const { data: allOrders } = await supabase
     .from("orders")
-    .select("id, name, phone, delivery_date, note, items, total, status, created_at")
+    .select("id, name, phone, delivery_date, fulfillment_mode, address, delivery_fee, note, items, total, status, created_at")
     .order("created_at", { ascending: false });
 
   const { data: settingsRows } = await supabase
@@ -72,6 +72,7 @@ export default async function AdminPage() {
     pendingDays: Number(settingsMap["order_retention_pending_days"] ?? 5),
     receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
     noSideDiscount: Math.max(0, Number(settingsMap["no_side_discount"] ?? 0)),
+    deliveryFee: Math.max(0, Number(settingsMap["delivery_fee"] ?? 0)),
   };
 
   return (

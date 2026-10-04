@@ -4,14 +4,21 @@ import type { CartItem, Product, Side } from "./types";
 // se pide "sin acompañamiento". Es un monto fijo en CLP, configurable en el admin.
 export interface Pricing {
   noSideDiscount: number;
+  deliveryFee: number;
 }
 
 export const NO_SIDE_DISCOUNT_KEY = "no_side_discount";
+export const DELIVERY_FEE_KEY = "delivery_fee";
+
+function nonNegativeInteger(value: string | undefined): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
 
 export function parsePricing(map: Record<string, string>): Pricing {
-  const raw = Number(map[NO_SIDE_DISCOUNT_KEY] ?? 0);
   return {
-    noSideDiscount: Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0,
+    noSideDiscount: nonNegativeInteger(map[NO_SIDE_DISCOUNT_KEY]),
+    deliveryFee: nonNegativeInteger(map[DELIVERY_FEE_KEY]),
   };
 }
 
@@ -47,4 +54,14 @@ export function itemsTotal(items: CartItem[], pricing: Pricing): number {
     (sum, i) => sum + effectiveUnitPrice(i.product, i.side, pricing) * i.qty,
     0
   );
+}
+
+/** La tarifa se cobra una sola vez por pedido, no por producto. */
+export function orderTotal(
+  items: CartItem[],
+  pricing: Pricing,
+  fulfillmentMode: "pickup" | "delivery" | ""
+): number {
+  return itemsTotal(items, pricing) +
+    (fulfillmentMode === "delivery" ? pricing.deliveryFee : 0);
 }

@@ -29,12 +29,18 @@ export interface CartItem {
   product: Product;
   qty: number;
   side: Side | null;
+  /** Precio al momento de guardar el pedido (solo para el historial del admin). */
+  unit_price?: number;
 }
+
+export type FulfillmentMode = "pickup" | "delivery";
 
 export interface OrderForm {
   name: string;
   phone: string;
   deliveryDate: string;
+  fulfillmentMode: FulfillmentMode | "";
+  address: string;
   note: string;
 }
 
@@ -45,6 +51,9 @@ export interface Order {
   name: string;
   phone: string;
   delivery_date: string;
+  fulfillment_mode: FulfillmentMode;
+  address: string;
+  delivery_fee: number;
   note: string;
   items: CartItem[];
   total: number;
@@ -56,4 +65,5 @@ export interface RetentionSettings {
   pendingDays: number;
   receivedDays: number;
   noSideDiscount: number;
+  deliveryFee: number;
 }

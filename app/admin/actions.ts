@@ -3,7 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
-import { itemsTotal, parsePricing, NO_SIDE_DISCOUNT_KEY } from "@/lib/pricing";
+import {
+  effectiveUnitPrice,
+  orderTotal,
+  parsePricing,
+  NO_SIDE_DISCOUNT_KEY,
+  DELIVERY_FEE_KEY,
+  type Pricing,
+} from "@/lib/pricing";
 import type { CartItem, OrderForm } from "@/lib/types";
 
 export async function signIn(
@@ -454,26 +461,43 @@ export async function moveProduct(
 export async function submitOrder(
   items: CartItem[],
   form: OrderForm
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; pricing?: Pricing }> {
   const name = form.name.trim();
   const phone = form.phone.trim();
   const deliveryDate = form.deliveryDate.trim();
   const note = form.note.trim();
+  const mode = form.fulfillmentMode;
+  const address = mode === "delivery" ? String(form.address ?? "").trim() : "";
 
-  if (name.length < 2 || phone.replace(/\D/g, "").length < 8 || !deliveryDate) {
+  if (
+    name.length < 2 ||
+    phone.replace(/\D/g, "").length < 8 ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate) ||
+    Number.isNaN(Date.parse(`${deliveryDate}T00:00:00Z`)) ||
+    new Date(`${deliveryDate}T00:00:00Z`).toISOString().slice(0, 10) !== deliveryDate
+  ) {
     return { error: "Completa nombre, teléfono y fecha de entrega." };
   }
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "Tu pedido está vacío." };
+  }
+  if (mode !== "pickup" && mode !== "delivery") {
+    return { error: "Elige retiro en local o despacho a domicilio." };
+  }
+  if (mode === "delivery" && (address.length < 5 || address.length > 300)) {
+    return { error: "Ingresa una dirección de entrega válida (entre 5 y 300 caracteres)." };
   }
 
   const supabase = await createServerClientInstance();
 
   // El descuento por "sin acompañamiento" se recalcula en el servidor:
   // nunca confiar en el total que llega desde el cliente.
-  const { data: settingsRows } = await supabase
+  const { data: settingsRows, error: settingsError } = await supabase
     .from("settings")
     .select("key, value");
+  if (settingsError) {
+    return { error: "No se pudo calcular el total del pedido. Intenta de nuevo." };
+  }
   const pricing = parsePricing(
     Object.fromEntries(
       (settingsRows ?? []).map((r: { key: string; value: string }) => [
@@ -482,14 +506,21 @@ export async function submitOrder(
       ])
     )
   );
-  const total = itemsTotal(items, pricing);
+  const deliveryFee = mode === "delivery" ? pricing.deliveryFee : 0;
+  const total = orderTotal(items, pricing, mode);
 
   const { error } = await supabase.from("orders").insert({
     name,
     phone,
     delivery_date: deliveryDate,
+    fulfillment_mode: mode,
+    address,
+    delivery_fee: deliveryFee,
     note,
-    items,
+    items: items.map((item) => ({
+      ...item,
+      unit_price: effectiveUnitPrice(item.product, item.side, pricing),
+    })),
     total,
     status: "pendiente",
   });
@@ -498,7 +529,38 @@ export async function submitOrder(
     console.error("Error guardando pedido:", error.message);
     return { error: "No se pudo guardar el pedido. Intenta de nuevo." };
   }
-  return { error: null };
+  return { error: null, pricing };
+}
+
+export async function saveDeliveryFee(
+  _prev: { error: string | null; ok?: boolean },
+  formData: FormData
+): Promise<{ error: string | null; ok?: boolean }> {
+  const value = String(formData.get("delivery_fee") ?? "");
+  const fee = Number(value);
+  if (!value.trim() || !Number.isSafeInteger(fee) || fee < 0) {
+    return { error: "La tarifa debe ser un monto entero en pesos (0 o más)." };
+  }
+
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase.from("settings").upsert({
+      key: DELIVERY_FEE_KEY,
+      value: String(fee),
+    });
+    if (error) throw error;
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudo guardar la tarifa de despacho.",
+    };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null, ok: true };
 }
 
 export async function markOrderReceived(id: string) {

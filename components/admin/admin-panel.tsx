@@ -27,6 +27,7 @@ import {
   deleteOrder,
   saveSettings,
   saveNoSideDiscount,
+  saveDeliveryFee,
   signOut,
 } from "@/app/admin/actions";
 import { ActiveToggle } from "./active-toggle";
@@ -82,6 +83,7 @@ export function AdminPanel({
     pendingDays: String(settings.pendingDays),
     receivedDays: String(settings.receivedDays),
   });
+  const [deliveryFee, setDeliveryFee] = useState(String(settings.deliveryFee));
   const [noSideDiscount, setNoSideDiscount] = useState(
     String(settings.noSideDiscount)
   );
@@ -106,6 +108,10 @@ export function AdminPanel({
     saveNoSideDiscount,
     { error: null, ok: false }
   );
+  const [feeState, feeAction, feePending] = useActionState(saveDeliveryFee, {
+    error: null,
+    ok: false,
+  });
 
   const [prevOk, setPrevOk] = useState({
     product: false,
@@ -333,6 +339,13 @@ export function AdminPanel({
             </>
           ) : tab === "pedidos" ? (
             <>
+              <DeliveryFeeForm
+                value={deliveryFee}
+                onChange={setDeliveryFee}
+                action={feeAction}
+                pending={feePending}
+                state={feeState}
+              />
               <OrderList orders={orders} />
               <RetentionForm
                 key={`r-${formKey}`}
@@ -1191,6 +1204,60 @@ function NoSideDiscountForm({
   );
 }
 
+function DeliveryFeeForm({
+  value,
+  onChange,
+  action,
+  pending,
+  state,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  state: { error: string | null; ok?: boolean };
+}) {
+  return (
+    <section className="border-b-2 border-dashed border-ink/10 pb-8">
+      <h2 className="font-display text-2xl text-pine">Tarifa de despacho</h2>
+      <p className="mt-1 text-sm text-ink/60">
+        Monto fijo por pedido con despacho a domicilio. Retirar en local no tiene costo.
+      </p>
+      <form action={action} className="mt-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="delivery-fee" className="text-sm font-bold text-pine">
+            Tarifa de despacho (CLP)
+          </label>
+          <input
+            id="delivery-fee"
+            name="delivery_fee"
+            type="number"
+            min={0}
+            step={1}
+            required
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-11 max-w-40 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+          />
+        </div>
+        {state.error && (
+          <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>
+        )}
+        {state.ok && (
+          <p className="text-sm font-semibold text-pine">Tarifa guardada.</p>
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex h-11 w-fit items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
+        >
+          {pending ? "Guardando…" : "Guardar tarifa"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function RetentionForm({
   retention,
   setRetention,
@@ -1344,13 +1411,21 @@ function OrderList({ orders }: { orders: Order[] }) {
                 <span className="font-semibold text-pine">{o.name}</span>
                 <span className="text-sm text-ink/60">{o.phone}</span>
                 <span className="text-sm text-ink/55">
-                  Recibido {formatDate(o.created_at)} · Entrega{" "}
+                  Recibido {formatDate(o.created_at)} · {o.fulfillment_mode === "delivery" ? "Entrega" : "Retiro"}{" "}
                   {formatDate(o.delivery_date)}
                 </span>
                 <span className="ml-auto font-display text-lg text-butter-deep">
                   {formatPrice(o.total)}
                 </span>
               </div>
+
+              <p className="text-sm text-ink/70">
+                <span className="font-bold text-pine">Modalidad:</span>{" "}
+                {o.fulfillment_mode === "delivery" ? "Despacho a domicilio" : "Retiro en local"}
+                {o.fulfillment_mode === "delivery" && o.address && (
+                  <> · <span className="font-bold text-pine">Dirección:</span> {o.address}</>
+                )}
+              </p>
 
               <ul className="rounded-md bg-cream px-4 py-2 text-sm text-ink/75">
                 {o.items.map((i, idx) => (
@@ -1363,10 +1438,16 @@ function OrderList({ orders }: { orders: Order[] }) {
                       {i.side ? ` · ${i.side.name}` : ""}
                     </span>
                     <span className="text-ink/55">
-                      {formatPrice(i.product.price * i.qty)}
+                      {formatPrice((i.unit_price ?? i.product.price) * i.qty)}
                     </span>
                   </li>
                 ))}
+                {o.fulfillment_mode === "delivery" && (
+                  <li className="flex items-baseline justify-between gap-2 border-t border-ink/10 py-1">
+                    <span>Tarifa de despacho</span>
+                    <span>{formatPrice(o.delivery_fee)}</span>
+                  </li>
+                )}
               </ul>
 
               {o.note && (
