@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useCart } from "./cart-provider";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { formatPrice } from "@/lib/format";
-import { effectiveUnitPrice, orderTotal, unitDiscount } from "@/lib/pricing";
+import {
+  deliveryFeeForDistance,
+  DELIVERY_TARIFF_THRESHOLD_METERS,
+  effectiveUnitPrice,
+  orderTotal,
+  unitDiscount,
+} from "@/lib/pricing";
+import { formatDistance, straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
+import {
+  DeliveryAddressAutocomplete,
+  type SelectedDeliveryPlace,
+} from "./delivery-address-autocomplete";
 import { PhoneContact } from "./phone-contact";
 import { submitOrder } from "@/app/admin/actions";
 import type { OrderForm } from "@/lib/types";
@@ -19,12 +30,22 @@ const INITIAL_FORM: OrderForm = {
   deliveryDate: today(),
   fulfillmentMode: "",
   address: "",
+  deliveryPlaceId: "",
   note: "",
 };
 
-export function OrderForm() {
+export function OrderForm({
+  deliveryOrigin,
+  mapsBrowserKey,
+  deliveryConfigured,
+}: {
+  deliveryOrigin: Coordinates | null;
+  mapsBrowserKey: string;
+  deliveryConfigured: boolean;
+}) {
   const { items, total, setQty, remove, clear, pricing } = useCart();
   const [form, setForm] = useState<OrderForm>(INITIAL_FORM);
+  const [destination, setDestination] = useState<Coordinates | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -39,11 +60,41 @@ export function OrderForm() {
   const phoneOk = form.phone.replace(/\D/g, "").length >= 8;
   const nameOk = form.name.trim().length >= 2;
   const modeOk = form.fulfillmentMode === "pickup" || form.fulfillmentMode === "delivery";
-  const addressOk = form.fulfillmentMode !== "delivery" ||
-    (form.address.trim().length >= 5 && form.address.trim().length <= 300);
+  const deliveryDistanceMeters =
+    form.fulfillmentMode === "delivery" && deliveryOrigin && destination
+      ? straightLineDistanceMeters(deliveryOrigin, destination)
+      : null;
+  const deliveryFee =
+    deliveryDistanceMeters === null
+      ? null
+      : deliveryFeeForDistance(deliveryDistanceMeters, pricing);
+  const addressOk =
+    form.fulfillmentMode !== "delivery" ||
+    (deliveryConfigured &&
+      Boolean(form.deliveryPlaceId) &&
+      form.address.length >= 5 &&
+      deliveryDistanceMeters !== null &&
+      deliveryFee !== null);
   const formOk = nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk;
-  const deliveryFee = form.fulfillmentMode === "delivery" ? pricing.deliveryFee : 0;
-  const finalTotal = orderTotal(items, pricing, form.fulfillmentMode);
+  const finalTotal = orderTotal(
+    items,
+    pricing,
+    form.fulfillmentMode,
+    deliveryDistanceMeters
+  );
+
+  const handleDeliveryPlaceSelect = useCallback(
+    (place: SelectedDeliveryPlace | null) => {
+      setForm((current) => ({
+        ...current,
+        address: place?.address ?? "",
+        deliveryPlaceId: place?.placeId ?? "",
+      }));
+      setDestination(place?.coordinates ?? null);
+      setSubmitError(null);
+    },
+    []
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +112,18 @@ export function OrderForm() {
     }
 
     // Usar la tarifa confirmada por el servidor si cambió mientras la página estaba abierta.
-    const url = buildWhatsAppUrl(buildOrderMessage(items, form, res.pricing ?? pricing));
+    const confirmedForm = {
+      ...form,
+      address: res.deliveryQuote?.address ?? form.address,
+    };
+    const url = buildWhatsAppUrl(
+      buildOrderMessage(
+        items,
+        confirmedForm,
+        res.pricing ?? pricing,
+        res.deliveryQuote?.distanceMeters ?? null
+      )
+    );
     setWhatsappUrl(url);
     window.open(url, "_blank", "noopener,noreferrer");
     setConfirmOpen(true);
@@ -70,6 +132,7 @@ export function OrderForm() {
   function confirmSent() {
     clear();
     setForm(INITIAL_FORM);
+    setDestination(null);
     setConfirmOpen(false);
     setSent(true);
   }
@@ -212,15 +275,35 @@ export function OrderForm() {
                   </span>
                 </li>
                 {form.fulfillmentMode === "delivery" && (
-                  <li className="flex items-center justify-between gap-3 px-4 pb-4 text-sm">
-                    <span className="font-semibold text-pine">Despacho a domicilio</span>
-                    <span>{formatPrice(deliveryFee)}</span>
+                  <li className="flex flex-col gap-1 px-4 pb-4 text-sm">
+                    {deliveryDistanceMeters !== null && (
+                      <p className="text-ink/60">
+                        Distancia en línea recta: {formatDistance(deliveryDistanceMeters)}
+                        {deliveryFee !== null && (
+                          <> · Tarifa {deliveryDistanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}</>
+                        )}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-pine">Despacho a domicilio</span>
+                      <span>
+                        {deliveryFee === null
+                          ? deliveryDistanceMeters === null
+                            ? "Selecciona una dirección"
+                            : "Tarifa 2 pendiente de configurar"
+                          : formatPrice(deliveryFee)}
+                      </span>
+                    </div>
                   </li>
                 )}
                 <li className="flex items-center justify-between gap-3 border-t border-ink/10 p-4">
                   <span className="font-display text-xl text-pine">Total</span>
                   <span className="font-display text-2xl text-butter-deep">
-                    {formatPrice(finalTotal)}
+                    {form.fulfillmentMode === "delivery" &&
+                    deliveryDistanceMeters !== null &&
+                    deliveryFee === null
+                      ? "Configura Tarifa 2"
+                      : formatPrice(finalTotal)}
                   </span>
                 </li>
               </ul>
@@ -292,33 +375,44 @@ export function OrderForm() {
                 value={form.fulfillmentMode}
                 onChange={(e) => {
                   const fulfillmentMode = e.target.value as typeof form.fulfillmentMode;
-                  setForm({ ...form, fulfillmentMode, address: fulfillmentMode === "delivery" ? form.address : "" });
+                  setForm({
+                    ...form,
+                    fulfillmentMode,
+                    address: "",
+                    deliveryPlaceId: "",
+                  });
+                  setDestination(null);
                 }}
                 className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink focus:border-butter-deep focus:outline-none"
               >
                 <option value="" disabled>Selecciona una opción</option>
                 <option value="pickup">Retiro en local · sin costo</option>
-                <option value="delivery">Despacho a domicilio · {formatPrice(pricing.deliveryFee)}</option>
+                <option value="delivery" disabled={!deliveryConfigured}>
+                  Despacho a domicilio · tarifa según distancia
+                </option>
               </select>
+              {!deliveryConfigured && (
+                <p className="text-sm text-ink/55">
+                  El despacho está temporalmente no disponible. Se requiere configurar Google Maps y la ubicación exacta del local.
+                </p>
+              )}
             </div>
 
             {form.fulfillmentMode === "delivery" && (
               <div className="flex flex-col gap-2">
-                <label htmlFor="delivery-address" className="text-sm font-bold text-pine">
-                  Dirección de entrega
-                </label>
-                <input
-                  id="delivery-address"
-                  type="text"
-                  required
-                  minLength={5}
-                  maxLength={300}
-                  autoComplete="street-address"
-                  placeholder="Calle, número y referencias"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink placeholder:text-ink/35 focus:border-butter-deep focus:outline-none"
-                />
+                <span className="text-sm font-bold text-pine">
+                  Busca y selecciona la dirección de entrega
+                </span>
+                {deliveryOrigin && mapsBrowserKey && (
+                  <DeliveryAddressAutocomplete
+                    apiKey={mapsBrowserKey}
+                    locationBias={deliveryOrigin}
+                    onSelect={handleDeliveryPlaceSelect}
+                  />
+                )}
+                <p className="text-xs text-ink/55">
+                  Selecciona una sugerencia para validar la ubicación y calcular la distancia en línea recta desde el local.
+                </p>
               </div>
             )}
 

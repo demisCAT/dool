@@ -57,7 +57,7 @@ export default async function AdminPage() {
 
   const { data: allOrders } = await supabase
     .from("orders")
-    .select("id, name, phone, delivery_date, fulfillment_mode, address, delivery_fee, note, items, total, status, created_at")
+    .select("id, name, phone, delivery_date, fulfillment_mode, address, delivery_fee, delivery_distance_m, note, items, total, status, created_at")
     .order("created_at", { ascending: false });
 
   const { data: settingsRows } = await supabase
@@ -73,6 +73,10 @@ export default async function AdminPage() {
     receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
     noSideDiscount: Math.max(0, Number(settingsMap["no_side_discount"] ?? 0)),
     deliveryFee: Math.max(0, Number(settingsMap["delivery_fee"] ?? 0)),
+    deliveryFeeOver2Km:
+      settingsMap["delivery_fee_over_2km"] === undefined
+        ? null
+        : Math.max(0, Number(settingsMap["delivery_fee_over_2km"])),
   };
 
   return (

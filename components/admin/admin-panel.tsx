@@ -10,6 +10,8 @@ import type {
   RetentionSettings,
 } from "@/lib/types";
 import { formatPrice, formatDate, toDateKey, todayKey } from "@/lib/format";
+import { formatDistance } from "@/lib/distance";
+import { DELIVERY_TARIFF_THRESHOLD_METERS } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -84,6 +86,9 @@ export function AdminPanel({
     receivedDays: String(settings.receivedDays),
   });
   const [deliveryFee, setDeliveryFee] = useState(String(settings.deliveryFee));
+  const [deliveryFeeOver2Km, setDeliveryFeeOver2Km] = useState(
+    settings.deliveryFeeOver2Km === null ? "" : String(settings.deliveryFeeOver2Km)
+  );
   const [noSideDiscount, setNoSideDiscount] = useState(
     String(settings.noSideDiscount)
   );
@@ -351,6 +356,8 @@ export function AdminPanel({
               <DeliveryFeeForm
                 value={deliveryFee}
                 onChange={setDeliveryFee}
+                valueOver2Km={deliveryFeeOver2Km}
+                onChangeOver2Km={setDeliveryFeeOver2Km}
                 action={feeAction}
                 pending={feePending}
                 state={feeState}
@@ -1207,51 +1214,73 @@ function NoSideDiscountForm({
 function DeliveryFeeForm({
   value,
   onChange,
+  valueOver2Km,
+  onChangeOver2Km,
   action,
   pending,
   state,
 }: {
   value: string;
   onChange: (value: string) => void;
+  valueOver2Km: string;
+  onChangeOver2Km: (value: string) => void;
   action: (formData: FormData) => void;
   pending: boolean;
   state: { error: string | null; ok?: boolean };
 }) {
   return (
     <section className="border-b-2 border-dashed border-ink/10 pb-8">
-      <h2 className="font-display text-2xl text-pine">Tarifa de despacho</h2>
+      <h2 className="font-display text-2xl text-pine">Tarifas de despacho</h2>
       <p className="mt-1 text-sm text-ink/60">
-        Monto fijo por pedido con despacho a domicilio. Retirar en local no tiene costo.
+        Se calcula la distancia en línea recta desde el local. Hasta 2 km, inclusive, se aplica la Tarifa 1; sobre 2 km, la Tarifa 2. El retiro es gratis. Configura ambas tarifas para habilitar cada tramo.
       </p>
       <form action={action} className="mt-5 flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="delivery-fee" className="text-sm font-bold text-pine">
-            Tarifa de despacho (CLP)
-          </label>
-          <input
-            id="delivery-fee"
-            name="delivery_fee"
-            type="number"
-            min={0}
-            step={1}
-            required
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-11 max-w-40 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
-          />
+        <div className="grid max-w-lg gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="delivery-fee" className="text-sm font-bold text-pine">
+              Tarifa 1 · hasta 2 km (CLP)
+            </label>
+            <input
+              id="delivery-fee"
+              name="delivery_fee"
+              type="number"
+              min={0}
+              step={1}
+              required
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="delivery-fee-over-2km" className="text-sm font-bold text-pine">
+              Tarifa 2 · más de 2 km (CLP)
+            </label>
+            <input
+              id="delivery-fee-over-2km"
+              name="delivery_fee_over_2km"
+              type="number"
+              min={0}
+              step={1}
+              required
+              value={valueOver2Km}
+              onChange={(e) => onChangeOver2Km(e.target.value)}
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
         </div>
         {state.error && (
           <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>
         )}
         {state.ok && (
-          <p className="text-sm font-semibold text-pine">Tarifa guardada.</p>
+          <p className="text-sm font-semibold text-pine">Tarifas guardadas.</p>
         )}
         <button
           type="submit"
           disabled={pending}
           className="inline-flex h-11 w-fit items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
         >
-          {pending ? "Guardando…" : "Guardar tarifa"}
+          {pending ? "Guardando…" : "Guardar tarifas"}
         </button>
       </form>
     </section>
@@ -1426,6 +1455,11 @@ function OrderList({ orders }: { orders: Order[] }) {
                   <> · <span className="font-bold text-pine">Dirección:</span> {o.address}</>
                 )}
               </p>
+              {o.fulfillment_mode === "delivery" && o.delivery_distance_m !== null && (
+                <p className="text-sm text-ink/60">
+                  Distancia en línea recta: {formatDistance(o.delivery_distance_m)} · Tarifa {o.delivery_distance_m > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}
+                </p>
+              )}
 
               <ul className="rounded-md bg-cream px-4 py-2 text-sm text-ink/75">
                 {o.items.map((i, idx) => (

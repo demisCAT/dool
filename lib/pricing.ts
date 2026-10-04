@@ -4,11 +4,16 @@ import type { CartItem, Product, Side } from "./types";
 // se pide "sin acompañamiento". Es un monto fijo en CLP, configurable en el admin.
 export interface Pricing {
   noSideDiscount: number;
+  /** Tarifa hasta 2 km, inclusive. */
   deliveryFee: number;
+  /** Tarifa para distancias mayores a 2 km; null significa no configurada. */
+  deliveryFeeOver2Km: number | null;
 }
 
 export const NO_SIDE_DISCOUNT_KEY = "no_side_discount";
 export const DELIVERY_FEE_KEY = "delivery_fee";
+export const DELIVERY_FEE_OVER_2KM_KEY = "delivery_fee_over_2km";
+export const DELIVERY_TARIFF_THRESHOLD_METERS = 2000;
 
 function nonNegativeInteger(value: string | undefined): number {
   const parsed = Number(value ?? 0);
@@ -16,10 +21,22 @@ function nonNegativeInteger(value: string | undefined): number {
 }
 
 export function parsePricing(map: Record<string, string>): Pricing {
+  const over2KmValue = map[DELIVERY_FEE_OVER_2KM_KEY];
   return {
     noSideDiscount: nonNegativeInteger(map[NO_SIDE_DISCOUNT_KEY]),
     deliveryFee: nonNegativeInteger(map[DELIVERY_FEE_KEY]),
+    deliveryFeeOver2Km:
+      over2KmValue === undefined ? null : nonNegativeInteger(over2KmValue),
   };
+}
+
+export function deliveryFeeForDistance(
+  distanceMeters: number,
+  pricing: Pricing
+): number | null {
+  return distanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS
+    ? pricing.deliveryFeeOver2Km
+    : pricing.deliveryFee;
 }
 
 /** True cuando el descuento aplica a este producto con este acompañamiento. */
@@ -60,8 +77,11 @@ export function itemsTotal(items: CartItem[], pricing: Pricing): number {
 export function orderTotal(
   items: CartItem[],
   pricing: Pricing,
-  fulfillmentMode: "pickup" | "delivery" | ""
+  fulfillmentMode: "pickup" | "delivery" | "",
+  deliveryDistanceMeters: number | null = null
 ): number {
   return itemsTotal(items, pricing) +
-    (fulfillmentMode === "delivery" ? pricing.deliveryFee : 0);
+    (fulfillmentMode === "delivery" && deliveryDistanceMeters !== null
+      ? (deliveryFeeForDistance(deliveryDistanceMeters, pricing) ?? 0)
+      : 0);
 }

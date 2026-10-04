@@ -6,6 +6,7 @@ import { MenuSection } from "@/components/store/menu-section";
 import { OrderForm } from "@/components/store/order-form";
 import { Footer } from "@/components/store/footer";
 import { getStoreData } from "@/lib/supabase/queries";
+import { DELIVERY_ORIGIN } from "@/lib/location";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,20 @@ export default async function Home() {
 
   const { categories, products, sides, pricing } = hasEnv
     ? await getStoreData()
-    : { categories: [], products: [], sides: [], pricing: { noSideDiscount: 0, deliveryFee: 0 } };
+    : {
+        categories: [],
+        products: [],
+        sides: [],
+        pricing: {
+          noSideDiscount: 0,
+          deliveryFee: 0,
+          deliveryFeeOver2Km: null,
+        },
+      };
+  const mapsBrowserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+  const deliveryConfigured = Boolean(
+    hasEnv && mapsBrowserKey && process.env.GOOGLE_MAPS_SERVER_API_KEY
+  );
   const mainCategory = categories.find((category) => category.slug === "platos-principales");
   const mainProducts = products.filter(
     (product) => product.active && product.category_id === mainCategory?.id
@@ -36,7 +50,11 @@ export default async function Home() {
           <Hero products={mainProducts} />
           <HowItWorks />
           <MenuSection categories={categories} products={products} sides={sides} />
-          <OrderForm />
+          <OrderForm
+            deliveryOrigin={DELIVERY_ORIGIN}
+            mapsBrowserKey={mapsBrowserKey}
+            deliveryConfigured={deliveryConfigured}
+          />
         </main>
         <Footer />
       </div>

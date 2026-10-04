@@ -3,14 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
+import { DELIVERY_ORIGIN } from "@/lib/location";
 import {
   effectiveUnitPrice,
   orderTotal,
   parsePricing,
   NO_SIDE_DISCOUNT_KEY,
   DELIVERY_FEE_KEY,
+  DELIVERY_FEE_OVER_2KM_KEY,
+  deliveryFeeForDistance,
   type Pricing,
 } from "@/lib/pricing";
+import { straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
 import type { CartItem, OrderForm } from "@/lib/types";
 
 export async function signIn(
@@ -461,13 +465,19 @@ export async function moveProduct(
 export async function submitOrder(
   items: CartItem[],
   form: OrderForm
-): Promise<{ error: string | null; pricing?: Pricing }> {
+): Promise<{
+  error: string | null;
+  pricing?: Pricing;
+  deliveryQuote?: { address: string; distanceMeters: number; fee: number };
+}> {
   const name = form.name.trim();
   const phone = form.phone.trim();
   const deliveryDate = form.deliveryDate.trim();
   const note = form.note.trim();
   const mode = form.fulfillmentMode;
-  const address = mode === "delivery" ? String(form.address ?? "").trim() : "";
+  const placeId = mode === "delivery" ? String(form.deliveryPlaceId ?? "").trim() : "";
+  let address = "";
+  let deliveryDistanceMeters: number | null = null;
 
   if (
     name.length < 2 ||
@@ -484,8 +494,8 @@ export async function submitOrder(
   if (mode !== "pickup" && mode !== "delivery") {
     return { error: "Elige retiro en local o despacho a domicilio." };
   }
-  if (mode === "delivery" && (address.length < 5 || address.length > 300)) {
-    return { error: "Ingresa una dirección de entrega válida (entre 5 y 300 caracteres)." };
+  if (mode === "delivery" && (!placeId || placeId.length > 512)) {
+    return { error: "Busca y selecciona una dirección de las sugerencias de Google Maps." };
   }
 
   const supabase = await createServerClientInstance();
@@ -506,8 +516,30 @@ export async function submitOrder(
       ])
     )
   );
-  const deliveryFee = mode === "delivery" ? pricing.deliveryFee : 0;
-  const total = orderTotal(items, pricing, mode);
+
+  let deliveryQuote: { address: string; distanceMeters: number; fee: number } | undefined;
+  if (mode === "delivery") {
+    const serverMapsKey = process.env.GOOGLE_MAPS_SERVER_API_KEY;
+    if (!serverMapsKey) {
+      return { error: "El despacho por distancia no está configurado. Elige retiro en local." };
+    }
+
+    const destination = await resolveDeliveryPlace(placeId, serverMapsKey);
+    if (!destination) {
+      return { error: "No pudimos validar esa dirección en Chile. Selecciona otra sugerencia." };
+    }
+
+    address = destination.address;
+    deliveryDistanceMeters = straightLineDistanceMeters(DELIVERY_ORIGIN, destination.coordinates);
+    const fee = deliveryFeeForDistance(deliveryDistanceMeters, pricing);
+    if (fee === null) {
+      return { error: "Falta configurar en el panel la Tarifa 2 para distancias mayores a 2 km." };
+    }
+    deliveryQuote = { address, distanceMeters: deliveryDistanceMeters, fee };
+  }
+
+  const deliveryFee = deliveryQuote?.fee ?? 0;
+  const total = orderTotal(items, pricing, mode, deliveryDistanceMeters);
 
   const { error } = await supabase.from("orders").insert({
     name,
@@ -516,6 +548,7 @@ export async function submitOrder(
     fulfillment_mode: mode,
     address,
     delivery_fee: deliveryFee,
+    delivery_distance_m: deliveryDistanceMeters,
     note,
     items: items.map((item) => ({
       ...item,
@@ -529,32 +562,89 @@ export async function submitOrder(
     console.error("Error guardando pedido:", error.message);
     return { error: "No se pudo guardar el pedido. Intenta de nuevo." };
   }
-  return { error: null, pricing };
+  return { error: null, pricing, deliveryQuote };
+}
+
+async function resolveDeliveryPlace(
+  placeId: string,
+  apiKey: string
+): Promise<{ address: string; coordinates: Coordinates } | null> {
+  try {
+    const response = await fetch(
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=es&regionCode=CL`,
+      {
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "formattedAddress,location,addressComponents",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    if (!response.ok) return null;
+
+    const place = (await response.json()) as {
+      formattedAddress?: string;
+      location?: { latitude?: number; longitude?: number };
+      addressComponents?: Array<{ types?: string[]; shortText?: string }>;
+    };
+    const country = place.addressComponents?.find((component) =>
+      component.types?.includes("country")
+    );
+    const latitude = place.location?.latitude;
+    const longitude = place.location?.longitude;
+    if (
+      country?.shortText !== "CL" ||
+      !place.formattedAddress ||
+      latitude === undefined ||
+      longitude === undefined ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return null;
+    }
+
+    return {
+      address: place.formattedAddress,
+      coordinates: { latitude, longitude },
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function saveDeliveryFee(
   _prev: { error: string | null; ok?: boolean },
   formData: FormData
 ): Promise<{ error: string | null; ok?: boolean }> {
-  const value = String(formData.get("delivery_fee") ?? "");
-  const fee = Number(value);
-  if (!value.trim() || !Number.isSafeInteger(fee) || fee < 0) {
-    return { error: "La tarifa debe ser un monto entero en pesos (0 o más)." };
+  const firstValue = String(formData.get("delivery_fee") ?? "");
+  const secondValue = String(formData.get("delivery_fee_over_2km") ?? "");
+  const fee = Number(firstValue);
+  const feeOver2Km = Number(secondValue);
+  if (
+    !firstValue.trim() ||
+    !secondValue.trim() ||
+    !Number.isSafeInteger(fee) ||
+    fee < 0 ||
+    !Number.isSafeInteger(feeOver2Km) ||
+    feeOver2Km < 0
+  ) {
+    return { error: "Ambas tarifas deben ser montos enteros en pesos (0 o más)." };
   }
 
   try {
     const supabase = await requireUser();
-    const { error } = await supabase.from("settings").upsert({
-      key: DELIVERY_FEE_KEY,
-      value: String(fee),
-    });
+    const { error } = await supabase.from("settings").upsert([
+      { key: DELIVERY_FEE_KEY, value: String(fee) },
+      { key: DELIVERY_FEE_OVER_2KM_KEY, value: String(feeOver2Km) },
+    ]);
     if (error) throw error;
   } catch (e) {
     return {
       error:
         e instanceof Error && e.message === "No autorizado"
           ? "Sesión vencida. Vuelve a iniciar sesión."
-          : "No se pudo guardar la tarifa de despacho.",
+          : "No se pudieron guardar las tarifas de despacho.",
     };
   }
 

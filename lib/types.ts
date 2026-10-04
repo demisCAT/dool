@@ -41,6 +41,7 @@ export interface OrderForm {
   deliveryDate: string;
   fulfillmentMode: FulfillmentMode | "";
   address: string;
+  deliveryPlaceId: string;
   note: string;
 }
 
@@ -54,6 +55,7 @@ export interface Order {
   fulfillment_mode: FulfillmentMode;
   address: string;
   delivery_fee: number;
+  delivery_distance_m: number | null;
   note: string;
   items: CartItem[];
   total: number;
@@ -66,4 +68,5 @@ export interface RetentionSettings {
   receivedDays: number;
   noSideDiscount: number;
   deliveryFee: number;
+  deliveryFeeOver2Km: number | null;
 }

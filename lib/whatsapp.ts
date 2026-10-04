@@ -1,11 +1,19 @@
 import { formatPrice, formatWhatsAppDate } from "./format";
-import { effectiveUnitPrice, itemsTotal, orderTotal, type Pricing } from "./pricing";
+import {
+  deliveryFeeForDistance,
+  effectiveUnitPrice,
+  itemsTotal,
+  orderTotal,
+  type Pricing,
+} from "./pricing";
+import { formatDistance } from "./distance";
 import type { CartItem, OrderForm } from "./types";
 
 export function buildOrderMessage(
   items: CartItem[],
   form: OrderForm,
-  pricing: Pricing
+  pricing: Pricing,
+  deliveryDistanceMeters: number | null = null
 ): string {
   const lines = items.map(({ product, qty, side }) => {
     const sideText = product.with_side
@@ -19,6 +27,10 @@ export function buildOrderMessage(
 
   const total = itemsTotal(items, pricing);
   const isDelivery = form.fulfillmentMode === "delivery";
+  const deliveryFee =
+    isDelivery && deliveryDistanceMeters !== null
+      ? deliveryFeeForDistance(deliveryDistanceMeters, pricing)
+      : 0;
 
   const rows = [
     "¡Hola Divina Natales! Quiero hacer un pedido:",
@@ -26,8 +38,15 @@ export function buildOrderMessage(
     ...lines,
     "",
     `Subtotal: ${formatPrice(total)}`,
-    ...(isDelivery ? [`Despacho a domicilio: ${formatPrice(pricing.deliveryFee)}`] : []),
-    `Total: ${formatPrice(orderTotal(items, pricing, form.fulfillmentMode))}`,
+    ...(isDelivery && deliveryDistanceMeters !== null
+      ? [
+          `Distancia en línea recta: ${formatDistance(deliveryDistanceMeters)}`,
+          `Despacho a domicilio: ${formatPrice(deliveryFee ?? 0)}`,
+        ]
+      : []),
+    `Total: ${formatPrice(
+      orderTotal(items, pricing, form.fulfillmentMode, deliveryDistanceMeters)
+    )}`,
     "",
     `Nombre: ${form.name}`,
     `Teléfono: ${form.phone}`,

@@ -10,7 +10,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 - Tarjetas compactas con foto a la izquierda en móvil y tablet; en escritorio, tarjetas verticales. Las fotografías del menú se sirven mediante `next/image`.
 - Carrito persistente en `localStorage`, con variantes por acompañamiento y cantidades.
 - Para platos marcados «con acompañamiento», selector de una opción activa o «Sin acompañamiento». Esta última aplica un **descuento fijo global por unidad**, configurable en admin; el precio nunca baja de $0.
-- Formulario con nombre, teléfono, fecha, modalidad obligatoria (**Retiro en local** o **Despacho a domicilio**) y nota opcional. El despacho exige dirección y añade una **tarifa fija por pedido**, no por producto. Se muestran subtotal, tarifa y total.
+- Formulario con nombre, teléfono, fecha y modalidad obligatoria. Para despacho se selecciona una dirección sugerida por Google Maps y se calcula la distancia en línea recta desde el pin del local: hasta 2 km inclusive usa Tarifa 1; más de 2 km, Tarifa 2. Se muestra distancia, tarifa y total.
 - Antes de abrir WhatsApp, el pedido se guarda en Supabase. El mensaje incluye modalidad, dirección cuando corresponde, desglose, total y fecha en formato `dd-MM-yyyy`. Tras abrir WhatsApp, el cliente confirma manualmente si lo envió.
 - Dirección del local (Carlos Condell 1546, Puerto Natales, Chile) con enlace a Google Maps en «Cómo pedir» y en el pie de página. El número telefónico se revela solo al hacer clic para reducir la captación por bots.
 
@@ -20,8 +20,8 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 - Productos: alta, edición, borrado, disponibilidad, fotografías (Storage público) y selección de categoría/acompañamiento. Al filtrar por categoría se muestran en orden de tienda y se pueden reordenar con flechas; en «Todas» se listan alfabéticamente.
 - Categorías y acompañamientos: gestión y orden manual mediante flechas. Los acompañamientos tienen disponibilidad independiente.
 - «Acompañamientos»: ajuste global **Descuento sin acompañamiento** en CLP (0 lo desactiva).
-- «Pedidos»: listado con estado, modalidad, dirección si es despacho, tarifa aplicada y total. Filtro por fecha, «Marcar recibido» y «Borrar».
-- Después del listado: **Vencimiento de pedidos** (días para pendientes y recibidos) y, a continuación, **Tarifa de despacho** en CLP (0 permite despacho gratis).
+- «Pedidos»: listado con estado, modalidad, dirección y distancia si es despacho, tarifa aplicada y total. Filtro por fecha, «Marcar recibido» y «Borrar».
+- Después del listado: **Vencimiento de pedidos** y luego **Tarifas de despacho** en CLP: Tarifa 1 (≤2 km) y Tarifa 2 (>2 km).
 - Limpieza de pedidos vencidos al abrir el admin y mediante cron diario de Vercel.
 
 ## Stack
@@ -36,7 +36,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 
 **Proyecto nuevo:** ejecuta [`supabase/schema.sql`](supabase/schema.sql) en Supabase → SQL Editor. Crea tablas, políticas RLS, función de limpieza, bucket público `products` y categorías/acompañamientos de ejemplo. Personaliza los datos desde el admin.
 
-**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Para habilitar retiro/despacho, ejecuta [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql) en SQL Editor. Agrega modalidad, dirección y tarifa a `orders`, y la clave `delivery_fee` a `settings`; los pedidos antiguos quedan como retiro sin tarifa. El `schema.sql` refleja el estado final de la base. El descuento `no_side_discount` puede crearse/actualizarse al guardarlo por primera vez en el admin.
+**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Si aún no tiene retiro/despacho, ejecuta primero [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql). En todos los proyectos existentes ejecuta también [`supabase/delivery-distance-migration.sql`](supabase/delivery-distance-migration.sql) antes del despliegue; agrega `delivery_distance_m` y deja NULL en pedidos históricos. `delivery_fee_over_2km` se crea al guardar ambas tarifas desde admin. El `schema.sql` refleja el estado final para proyectos nuevos.
 
 ### 2. Variables de entorno
 
@@ -48,14 +48,18 @@ Copia `.env.example` a `.env.local` y completa:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública anon de Supabase; la seguridad depende de RLS |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio, solo dígitos y con código de país (Chile: `56912345678`) |
 | `CRON_SECRET` | Secreto **solo del servidor** para proteger `/api/cron/cleanup-orders`; configurar en Vercel si se usa el cron |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Clave para autocomplete en el navegador; restringir por HTTP referrer y APIs |
+| `GOOGLE_MAPS_SERVER_API_KEY` | Clave distinta y privada para validar Place IDs en el servidor; restringir a Places API (New) |
 
 No uses la clave `service_role` en el cliente ni en variables `NEXT_PUBLIC_*`.
+No pegues las API keys en el chat ni las guardes en Git. Configura ambas claves en `.env.local` y Vercel; si falta alguna, la opción de despacho queda deshabilitada. El pin de origen está en `lib/location.ts` y no es secreto.
+La clave del navegador debe restringirse por dominio (localhost y dominio de producción) y API. Crea una segunda clave para servidor, restringida a Places API (New). Configura cuotas y alertas de presupuesto en Google Cloud. Places se factura por SKU; los cupos gratuitos mensuales son por SKU y las reglas de sesiones de Autocomplete afectan el cobro. Como usamos línea recta, no se llama a Routes API. Consulta [precios oficiales](https://developers.google.com/maps/billing-and-pricing/pricing) y [precios de sesión de Places](https://developers.google.com/maps/documentation/places/web-service/session-pricing).
 
 ### 3. Administrador y tarifas
 
 1. Crea el usuario en Supabase → Authentication → Users (confirma el correo); desactiva los registros públicos por email si no los necesitas.
 2. Entra a `/admin` con ese usuario.
-3. Configura «Descuento sin acompañamiento» en **Acompañamientos** y «Tarifa de despacho» en **Pedidos**; ambos usan `0` por defecto.
+3. Configura «Descuento sin acompañamiento» en **Acompañamientos** y ambas tarifas en **Pedidos**. Tarifa 2 queda sin configurar hasta guardarla; no se aceptarán despachos de más de 2 km mientras falte.
 4. Agrega y activa productos; marca «con acompañamiento» solo donde corresponda.
 
 ## Desarrollo y despliegue
@@ -77,9 +81,9 @@ No hay suite de tests automatizada. El despliegue en Vercel requiere las variabl
 
 ## Precios y pedidos
 
-`lib/pricing.ts` centraliza el descuento por «Sin acompañamiento», el subtotal de productos y el total con despacho. El descuento aplica solo a productos `with_side` seleccionados sin acompañamiento; la tarifa de despacho se suma **una vez** solo al elegir domicilio. Ambas cantidades se leen de `settings` y el servidor recalcula el total antes de guardar el pedido; la interfaz y el mensaje de WhatsApp muestran el desglose.
+`lib/pricing.ts` centraliza el descuento por «Sin acompañamiento», el subtotal y las tarifas. `lib/distance.ts` calcula Haversine desde `DELIVERY_ORIGIN` en `lib/location.ts`; exactamente 2.000 m usa Tarifa 1 y cualquier distancia superior usa Tarifa 2. El navegador muestra una estimación; `submitOrder` valida el Place ID con Places API en el servidor y recalcula tarifa/total antes de guardar. Cada pedido conserva `delivery_distance_m` y `delivery_fee` aplicados.
 
-La tabla `orders` conserva modalidad (`fulfillment_mode`: `pickup`/`delivery`), dirección (`address`), tarifa cobrada (`delivery_fee`), artículos y total. Los artículos nuevos guardan un `unit_price` calculado para mantener el precio histórico en el admin; los pedidos antiguos siguen siendo legibles. El carrito continúa en `localStorage` hasta que el cliente confirma el envío por WhatsApp.
+La tabla `orders` conserva modalidad, dirección canónica, distancia en metros, tarifa cobrada, artículos y total. WhatsApp incluye distancia recta y tarifa. El carrito continúa en `localStorage` hasta que el cliente confirma el envío.
 
 ## Estructura principal
 
@@ -95,6 +99,7 @@ lib/location.ts             Dirección pública y enlace a Maps
 lib/supabase/               Clientes y consultas públicas
 supabase/schema.sql         Esquema completo para proyectos nuevos
 supabase/delivery-migration.sql  Actualización para bases existentes
+supabase/delivery-distance-migration.sql  Agrega distancia a pedidos existentes
 ```
 
 Los iconos de marca están en `app/favicon.ico`, `app/icon.png` y `app/apple-icon.png`. El emblema de la tienda está en `public/logo-emblem.png`; el footer permanece tipográfico.
