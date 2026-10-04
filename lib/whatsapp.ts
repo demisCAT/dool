@@ -9,6 +9,21 @@ import {
 import { formatDistance } from "./distance";
 import type { CartItem, OrderForm } from "./types";
 
+/**
+ * Acorta una dirección de Google Maps para el mensaje de WhatsApp:
+ * elimina la comuna y la región ("Natales, Magallanes y la Antártica
+ * Chilena") y, si viene junto, el país ("Chile" o "CL").
+ */
+function shortenDeliveryAddress(address: string): string {
+  return address
+    .replace(
+      /,\s*(?:Puerto\s+)?Natales\s*,\s*(?:Regi[oó]n\s+de\s+)?Magallanes\s+y\s+(?:de\s+la\s+)?Ant[aá]rtica\s+Chilena(?:\s*,\s*(?:Chile|CL))?$/i,
+      ""
+    )
+    .replace(/,\s*(?:Puerto\s+)?Natales\s*,\s*(?:Chile|CL)$/i, "")
+    .trim();
+}
+
 export function buildOrderMessage(
   items: CartItem[],
   form: OrderForm,
@@ -53,7 +68,7 @@ export function buildOrderMessage(
     `Modalidad: ${isDelivery ? "Despacho a domicilio" : "Retiro en local"}`,
     ...(isDelivery
       ? [
-          `Dirección de entrega: ${form.address.trim()}${
+          `Dirección de entrega: ${shortenDeliveryAddress(form.address)}${
             form.needsNearestAddress ? " (punto más cercano)" : ""
           }`,
         ]
