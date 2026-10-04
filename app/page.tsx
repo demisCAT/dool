@@ -17,6 +17,10 @@ export default async function Home() {
   const { categories, products, sides, pricing } = hasEnv
     ? await getStoreData()
     : { categories: [], products: [], sides: [], pricing: { noSideDiscount: 0 } };
+  const mainCategory = categories.find((category) => category.slug === "platos-principales");
+  const mainProducts = products.filter(
+    (product) => product.active && product.category_id === mainCategory?.id
+  );
 
   return (
     <CartProvider pricing={pricing}>
@@ -29,7 +33,7 @@ export default async function Home() {
               catálogo.
             </div>
           )}
-          <Hero products={products} />
+          <Hero products={mainProducts} />
           <HowItWorks />
           <MenuSection categories={categories} products={products} sides={sides} />
           <OrderForm />
