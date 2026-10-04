@@ -51,7 +51,13 @@ export function buildOrderMessage(
     `Nombre: ${form.name}`,
     `Teléfono: ${form.phone}`,
     `Modalidad: ${isDelivery ? "Despacho a domicilio" : "Retiro en local"}`,
-    ...(isDelivery ? [`Dirección de entrega: ${form.address.trim()}`] : []),
+    ...(isDelivery
+      ? [
+          `Dirección de entrega: ${form.address.trim()}${
+            form.needsNearestAddress ? " (punto más cercano)" : ""
+          }`,
+        ]
+      : []),
     `Fecha de ${isDelivery ? "entrega" : "retiro"}: ${formatWhatsAppDate(form.deliveryDate)}`,
   ];
 

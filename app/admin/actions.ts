@@ -526,7 +526,10 @@ export async function submitOrder(
 
     const destination = await resolveDeliveryPlace(placeId, serverMapsKey);
     if (!destination) {
-      return { error: "No pudimos validar esa dirección en Chile. Selecciona otra sugerencia." };
+      return {
+        error:
+          "No pudimos validar esa dirección. Si tu dirección exacta no aparece, selecciona el punto más cercano que sí aparezca y describe tu dirección real en la nota.",
+      };
     }
 
     address = destination.address;

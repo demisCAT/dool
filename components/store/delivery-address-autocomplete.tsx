@@ -95,7 +95,9 @@ export function DeliveryAddressAutocomplete({
           };
           const place = event.placePrediction?.toPlace();
           if (!place?.id) {
-            setError("Selecciona una dirección de las sugerencias de Google Maps.");
+            setError(
+              "Selecciona una dirección de las sugerencias de Google Maps. Si no aparece tu dirección exacta, elige el punto más cercano y descríbela en la nota."
+            );
             onSelect(null);
             return;
           }
@@ -114,7 +116,9 @@ export function DeliveryAddressAutocomplete({
                 !Number.isFinite(latitude) ||
                 !Number.isFinite(longitude)
               ) {
-                setError("Google Maps no pudo precisar esa dirección. Prueba otra sugerencia.");
+                setError(
+                  "Google Maps no pudo precisar esa dirección. Prueba otra sugerencia o usa el punto más cercano y descríbela en la nota."
+                );
                 onSelect(null);
                 return;
               }

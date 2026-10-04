@@ -43,6 +43,8 @@ export interface OrderForm {
   address: string;
   deliveryPlaceId: string;
   note: string;
+  /** El usuario no encontró su dirección exacta y usará la más cercana. */
+  needsNearestAddress: boolean;
 }
 
 export type OrderStatus = "pendiente" | "recibido";

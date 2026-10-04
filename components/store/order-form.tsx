@@ -32,6 +32,7 @@ const INITIAL_FORM: OrderForm = {
   address: "",
   deliveryPlaceId: "",
   note: "",
+  needsNearestAddress: false,
 };
 
 export function OrderForm({
@@ -75,7 +76,13 @@ export function OrderForm({
       form.address.length >= 5 &&
       deliveryDistanceMeters !== null &&
       deliveryFee !== null);
-  const formOk = nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk;
+  // Si el usuario eligió el punto más cercano, la nota es obligatoria
+  // para describir su dirección real.
+  const nearestNotesNeeded =
+    form.fulfillmentMode === "delivery" && form.needsNearestAddress;
+  const noteOk = !nearestNotesNeeded || form.note.trim().length >= 10;
+  const formOk =
+    nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk && noteOk;
   const finalTotal = orderTotal(
     items,
     pricing,
@@ -95,6 +102,18 @@ export function OrderForm({
     },
     []
   );
+
+  const handleNearestToggle = (checked: boolean) => {
+    // Al cambiar la modalidad de dirección, se limpia la selección previa.
+    setForm((current) => ({
+      ...current,
+      needsNearestAddress: checked,
+      address: "",
+      deliveryPlaceId: "",
+    }));
+    setDestination(null);
+    setSubmitError(null);
+  };
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -282,6 +301,9 @@ export function OrderForm({
                         {deliveryFee !== null && (
                           <> · Tarifa {deliveryDistanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}</>
                         )}
+                        {nearestNotesNeeded && (
+                          <span className="ml-1 text-butter-deep">· hacia el punto más cercano</span>
+                        )}
                       </p>
                     )}
                     <div className="flex items-center justify-between gap-3">
@@ -404,30 +426,72 @@ export function OrderForm({
                   Busca y selecciona la dirección de entrega
                 </span>
                 {deliveryOrigin && mapsBrowserKey && (
-                  <DeliveryAddressAutocomplete
-                    apiKey={mapsBrowserKey}
-                    locationBias={deliveryOrigin}
-                    onSelect={handleDeliveryPlaceSelect}
-                  />
+                  <>
+                    <DeliveryAddressAutocomplete
+                      apiKey={mapsBrowserKey}
+                      locationBias={deliveryOrigin}
+                      onSelect={handleDeliveryPlaceSelect}
+                    />
+                    <label className="flex items-start gap-3 rounded-lg border-2 border-ink/15 bg-cream px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={form.needsNearestAddress}
+                        onChange={(e) => handleNearestToggle(e.target.checked)}
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-pine"
+                      />
+                      <span className="text-sm text-ink/75">
+                        No encuentro mi dirección exacta: seleccionaré el punto más
+                        cercano y la describiré en la nota.
+                      </span>
+                    </label>
+                  </>
+                )}
+                {form.needsNearestAddress && (
+                  <p className="rounded-md bg-butter-deep/10 px-3 py-2 text-sm text-ink/75">
+                    Selecciona de las sugerencias la dirección o el punto más cercano
+                    a tu casa y describe tu dirección real en la nota (obligatoria):
+                    nombre de la calle, número, block o departamento y referencias.
+                    La distancia y la tarifa se calculan hacia ese punto: si tu casa
+                    queda más lejos, el valor final del despacho podría ser mayor.
+                  </p>
                 )}
                 <p className="text-xs text-ink/55">
                   Selecciona una sugerencia para validar la ubicación y calcular la distancia en línea recta desde el local.
+                  {form.needsNearestAddress &&
+                    " Si tu dirección exacta no aparece, usa el punto más cercano que sí aparezca."}
                 </p>
               </div>
             )}
 
             <div className="flex flex-col gap-2">
               <label htmlFor="note" className="text-sm font-bold text-pine">
-                Nota <span className="font-normal text-ink/50">(opcional)</span>
+                Nota{" "}
+                {nearestNotesNeeded ? (
+                  <span className="font-normal text-red-700">
+                    (obligatoria: describe tu dirección real)
+                  </span>
+                ) : (
+                  <span className="font-normal text-ink/50">(opcional)</span>
+                )}
               </label>
               <textarea
                 id="note"
                 rows={3}
-                placeholder="Ej: sin cebolla, por favor"
+                placeholder={
+                  form.needsNearestAddress
+                    ? "Ej: Villa Esperanza, Pasaje Los Aromos 123, block 2, depto 301, cerca de la plaza"
+                    : "Ej: sin cebolla, por favor"
+                }
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
                 className="rounded-lg border-2 border-ink/15 bg-cream px-4 py-3 text-ink placeholder:text-ink/35 focus:border-butter-deep focus:outline-none"
               />
+              {nearestNotesNeeded && !noteOk && (
+                <p role="alert" className="text-sm font-semibold text-red-700">
+                  Describe tu dirección real (calle, número, block o departamento y
+                  referencias) para que podamos ubicarte.
+                </p>
+              )}
             </div>
 
             {submitError && (
