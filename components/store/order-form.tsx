@@ -11,7 +11,7 @@ import {
   orderTotal,
   unitDiscount,
 } from "@/lib/pricing";
-import { formatDistance, straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
+import { straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
 import {
   DeliveryAddressAutocomplete,
   type SelectedDeliveryPlace,
@@ -295,12 +295,10 @@ export function OrderForm({
                 </li>
                 {form.fulfillmentMode === "delivery" && (
                   <li className="flex flex-col gap-1 px-4 pb-4 text-sm">
-                    {deliveryDistanceMeters !== null && (
+                    {deliveryFee !== null && deliveryDistanceMeters !== null && (
                       <p className="text-ink/60">
-                        Distancia en línea recta: {formatDistance(deliveryDistanceMeters)}
-                        {deliveryFee !== null && (
-                          <> · Tarifa {deliveryDistanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}</>
-                        )}
+                        Tarifa{" "}
+                        {deliveryDistanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}
                         {nearestNotesNeeded && (
                           <span className="ml-1 text-butter-deep">· hacia el punto más cercano</span>
                         )}
