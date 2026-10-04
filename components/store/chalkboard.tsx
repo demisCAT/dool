@@ -2,7 +2,7 @@ import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 
 export function Chalkboard({ products }: { products: Product[] }) {
-  const rows = products.slice(0, 5);
+  const rows = products.slice(0, 8);
 
   return (
     <div className="relative -rotate-1.5 transition-transform duration-500 hover:rotate-0">
