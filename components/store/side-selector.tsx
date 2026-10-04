@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Product, Side } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-import { type Pricing } from "@/lib/pricing";
+import type { Pricing } from "@/lib/pricing";
+
 export function SideSelector({
   product,
   sides,
@@ -24,6 +25,15 @@ export function SideSelector({
   const showsDiscount = product.with_side && discount > 0;
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
@@ -40,34 +50,45 @@ export function SideSelector({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/60 p-3 sm:p-5"
       role="dialog"
       aria-modal="true"
-      aria-label={`Elegir acompañamiento para ${product.name}`}
+      aria-labelledby="side-selector-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-paper p-6 shadow-2xl shadow-ink/30"
+        className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-md flex-col overflow-hidden rounded-lg bg-paper shadow-2xl shadow-ink/30 sm:max-h-[calc(100dvh-2.5rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="font-hand text-2xl text-butter-deep">elige un acompañamiento</p>
-        <h3 className="font-display mt-1 text-2xl leading-snug text-pine">
-          {product.name}
-        </h3>
-        <p className="mt-1 font-display text-lg text-butter-deep">
-          {selectedKey === "none" && showsDiscount ? (
-            <>
-              <span className="mr-2 text-ink/40 line-through">
-                {formatPrice(product.price)}
-              </span>
-              {formatPrice(discountedPrice)}
-            </>
-          ) : (
-            formatPrice(product.price)
-          )}
-        </p>
+        <div className="shrink-0 px-4 pb-3 pt-4 sm:px-6 sm:pt-6">
+          <p className="font-hand text-xl text-butter-deep sm:text-2xl">
+            elige un acompañamiento
+          </p>
+          <h3
+            id="side-selector-title"
+            className="font-display mt-1 text-xl leading-snug text-pine sm:text-2xl"
+          >
+            {product.name}
+          </h3>
+          <p className="mt-1 font-display text-base text-butter-deep sm:text-lg">
+            {selectedKey === "none" && showsDiscount ? (
+              <>
+                <span className="mr-2 text-ink/40 line-through">
+                  {formatPrice(product.price)}
+                </span>
+                {formatPrice(discountedPrice)}
+              </>
+            ) : (
+              formatPrice(product.price)
+            )}
+          </p>
+        </div>
 
-        <div role="radiogroup" aria-label="Acompañamientos" className="mt-5 flex flex-col gap-2">
+        <div
+          role="radiogroup"
+          aria-label="Acompañamientos"
+          className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6"
+        >
           {sides.map((side) => (
             <label
               key={side.id}
@@ -125,19 +146,19 @@ export function SideSelector({
           </label>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="flex shrink-0 gap-2 border-t border-ink/10 px-4 pb-4 pt-3 sm:gap-3 sm:px-6 sm:pb-6">
           <button
             type="button"
             onClick={confirm}
             disabled={!selectedKey}
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-pine px-6 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:cursor-not-allowed disabled:bg-ink/20 disabled:text-ink/40"
+            className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-full bg-pine px-3 text-sm font-bold text-chalk transition-colors hover:bg-pine-deep disabled:cursor-not-allowed disabled:bg-ink/20 disabled:text-ink/40 sm:px-6 sm:text-base"
           >
             Agregar al pedido
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-11 items-center rounded-full border-2 border-ink/15 px-6 font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine"
+            className="inline-flex h-11 items-center rounded-full border-2 border-ink/15 px-3 text-sm font-bold text-ink/70 transition-colors hover:border-pine hover:text-pine sm:px-6 sm:text-base"
           >
             Cancelar
           </button>
