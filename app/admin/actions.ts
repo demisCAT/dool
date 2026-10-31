@@ -578,12 +578,6 @@ export async function submitOrder(
     // dirección real. Google solo prellena el campo en el navegador.
     const effectiveNumber = deliveryNumber;
     const feePending = !effectiveNumber;
-    if (feePending && note.length < 10) {
-      return {
-        error:
-          "No indicaste el número de tu dirección. Descríbela en la nota (calle, número si lo sabes, block o departamento y referencias) para confirmar el despacho.",
-      };
-    }
     if (effectiveNumber) {
       address = addDeliveryNumberToAddress(
         destination.address,

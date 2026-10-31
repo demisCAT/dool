@@ -132,12 +132,17 @@ export function DeliveryAddressAutocomplete({
                 return;
               }
 
+              const rawStreetNumber = place.addressComponents
+                ?.find((component) =>
+                  component.types?.includes("street_number")
+                )
+                ?.shortText?.trim();
+              // "S/N" u otros valores no numéricos significan que no hay
+              // número: se usa el flujo de tarifa por confirmar.
               const streetNumber =
-                place.addressComponents
-                  ?.find((component) =>
-                    component.types?.includes("street_number")
-                  )
-                  ?.shortText?.trim() || null;
+                rawStreetNumber && /^\d/.test(rawStreetNumber)
+                  ? rawStreetNumber
+                  : null;
 
               onSelect({
                 placeId: place.id!,

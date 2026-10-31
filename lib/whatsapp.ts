@@ -87,8 +87,15 @@ export function buildOrderMessage(
       ? [
           `Dirección de entrega: ${shortenDeliveryAddress(form.address)}${
             form.needsNearestAddress ? " (punto más cercano)" : ""
-          }${deliveryFeePending ? " (sin número; ver nota)" : ""}`,
+          }${
+            deliveryFeePending
+              ? " (sin número; confirma número y referencias por este chat)"
+              : ""
+          }`,
         ]
+      : []),
+    ...(isDelivery && deliveryFeePending
+      ? ["Importante: falta el número de la dirección; lo confirmaremos por WhatsApp."]
       : []),
     `Fecha de ${isDelivery ? "entrega" : "retiro"}: ${formatWhatsAppDate(form.deliveryDate)}`,
   ];

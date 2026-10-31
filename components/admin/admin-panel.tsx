@@ -1502,8 +1502,8 @@ function OrderList({ orders }: { orders: Order[] }) {
               )}
               {o.fulfillment_mode === "delivery" && o.delivery_fee_pending && (
                 <p className="text-sm font-semibold text-butter-deep">
-                  Sin número en la dirección: revisa la nota y confirma la tarifa
-                  por WhatsApp.
+                  Sin número en la dirección: confirma número, referencias y
+                  tarifa por WhatsApp.
                 </p>
               )}
 

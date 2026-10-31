@@ -103,10 +103,11 @@ export function OrderForm({
       !deliveryOutOfRange &&
       deliveryNumberOk &&
       (deliveryFeePending || deliveryFee !== null));
-  // La nota es obligatoria con el punto más cercano o sin número de calle.
+  // La nota solo es obligatoria con el punto más cercano. Sin número la
+  // dirección se puede confirmar por WhatsApp, así que la nota es opcional.
   const deliveryNotesNeeded =
-    form.fulfillmentMode === "delivery" &&
-    (form.needsNearestAddress || deliveryFeePending);
+    form.fulfillmentMode === "delivery" && form.needsNearestAddress;
+  const noteOptionalForPending = deliveryFeePending && !deliveryNotesNeeded;
   const noteOk = !deliveryNotesNeeded || form.note.trim().length >= 10;
   const formOk =
     nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk && noteOk;
@@ -153,31 +154,36 @@ export function OrderForm({
     setSubmitting(true);
     setSubmitError(null);
 
-    const res = await submitOrder(items, form);
-    setSubmitting(false);
+    try {
+      const res = await submitOrder(items, form);
 
-    if (res.error) {
-      setSubmitError(res.error);
-      return;
+      if (res.error) {
+        setSubmitError(res.error);
+        return;
+      }
+
+      // Usar la tarifa confirmada por el servidor si cambió mientras la página estaba abierta.
+      const confirmedForm = {
+        ...form,
+        address: res.deliveryQuote?.address ?? form.address,
+      };
+      const url = buildWhatsAppUrl(
+        buildOrderMessage(
+          items,
+          confirmedForm,
+          res.pricing ?? pricing,
+          res.deliveryQuote?.distanceMeters ?? null,
+          res.deliveryQuote?.pending ?? false
+        )
+      );
+      setWhatsappUrl(url);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setConfirmOpen(true);
+    } catch {
+      setSubmitError("No se pudo enviar el pedido. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
     }
-
-    // Usar la tarifa confirmada por el servidor si cambió mientras la página estaba abierta.
-    const confirmedForm = {
-      ...form,
-      address: res.deliveryQuote?.address ?? form.address,
-    };
-    const url = buildWhatsAppUrl(
-      buildOrderMessage(
-        items,
-        confirmedForm,
-        res.pricing ?? pricing,
-        res.deliveryQuote?.distanceMeters ?? null,
-        res.deliveryQuote?.pending ?? false
-      )
-    );
-    setWhatsappUrl(url);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setConfirmOpen(true);
   }
 
   function confirmSent() {
@@ -528,9 +534,10 @@ export function OrderForm({
                         )}
                         {deliveryFeePending && (
                           <p className="text-sm text-ink/70">
-                            Sin número no calcularemos la tarifa de despacho. Describe
-                            tu dirección real en la nota y la confirmaremos por
-                            WhatsApp.
+                            Sin número no calcularemos la tarifa de despacho.{" "}
+                            {deliveryNotesNeeded
+                              ? "Describe tu dirección real en la nota (obligatoria) y la confirmaremos por WhatsApp."
+                              : "Puedes escribir tu dirección en la nota (opcional); la confirmaremos por WhatsApp."}
                           </p>
                         )}
                       </div>
@@ -562,7 +569,7 @@ export function OrderForm({
                   Selecciona una sugerencia para validar la ubicación y calcular la distancia en línea recta desde el local.
                   El despacho se ofrece hasta {deliveryMaxKm} km. Completa el número
                   si lo conoces; si no lo indicas, la tarifa quedará por confirmar y
-                  la nota será obligatoria.
+                  podrás describir tu dirección en la nota (opcional).
                   {form.needsNearestAddress &&
                     " Si tu dirección exacta no aparece, usa el punto más cercano que sí aparezca."}
                 </p>
@@ -586,6 +593,10 @@ export function OrderForm({
                   <span className="font-normal text-red-700">
                     (obligatoria: describe tu dirección real)
                   </span>
+                ) : noteOptionalForPending ? (
+                  <span className="font-normal text-ink/50">
+                    (opcional: escribe tu dirección para agilizar)
+                  </span>
                 ) : (
                   <span className="font-normal text-ink/50">(opcional)</span>
                 )}
@@ -594,7 +605,7 @@ export function OrderForm({
                 id="note"
                 rows={3}
                 placeholder={
-                  deliveryNotesNeeded
+                  deliveryNotesNeeded || deliveryFeePending
                     ? "Ej: Villa Esperanza, Pasaje Los Aromos 123, block 2, depto 301, cerca de la plaza"
                     : "Ej: sin cebolla, por favor"
                 }
