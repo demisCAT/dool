@@ -8,16 +8,30 @@ export interface Pricing {
   deliveryFee: number;
   /** Tarifa para distancias mayores a 2 km; null significa no configurada. */
   deliveryFeeOver2Km: number | null;
+  /** Radio máximo de despacho en metros, medido en línea recta. */
+  deliveryMaxDistanceMeters: number;
 }
 
 export const NO_SIDE_DISCOUNT_KEY = "no_side_discount";
 export const DELIVERY_FEE_KEY = "delivery_fee";
 export const DELIVERY_FEE_OVER_2KM_KEY = "delivery_fee_over_2km";
+export const DELIVERY_MAX_DISTANCE_KEY = "delivery_max_distance_m";
 export const DELIVERY_TARIFF_THRESHOLD_METERS = 2000;
+export const DELIVERY_MAX_DISTANCE_DEFAULT_METERS = 10_000;
+export const DELIVERY_MAX_DISTANCE_MIN_KM = 1;
+export const DELIVERY_MAX_DISTANCE_MAX_KM = 100;
 
 function nonNegativeInteger(value: string | undefined): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
+function positiveIntegerOrDefault(
+  value: string | undefined,
+  fallback: number
+): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export function parsePricing(map: Record<string, string>): Pricing {
@@ -27,7 +41,19 @@ export function parsePricing(map: Record<string, string>): Pricing {
     deliveryFee: nonNegativeInteger(map[DELIVERY_FEE_KEY]),
     deliveryFeeOver2Km:
       over2KmValue === undefined ? null : nonNegativeInteger(over2KmValue),
+    deliveryMaxDistanceMeters: positiveIntegerOrDefault(
+      map[DELIVERY_MAX_DISTANCE_KEY],
+      DELIVERY_MAX_DISTANCE_DEFAULT_METERS
+    ),
   };
+}
+
+/** True cuando la distancia está dentro del radio de despacho configurado. */
+export function isWithinDeliveryRadius(
+  distanceMeters: number,
+  pricing: Pricing
+): boolean {
+  return distanceMeters <= pricing.deliveryMaxDistanceMeters;
 }
 
 export function deliveryFeeForDistance(
@@ -81,7 +107,9 @@ export function orderTotal(
   deliveryDistanceMeters: number | null = null
 ): number {
   return itemsTotal(items, pricing) +
-    (fulfillmentMode === "delivery" && deliveryDistanceMeters !== null
+    (fulfillmentMode === "delivery" &&
+    deliveryDistanceMeters !== null &&
+    isWithinDeliveryRadius(deliveryDistanceMeters, pricing)
       ? (deliveryFeeForDistance(deliveryDistanceMeters, pricing) ?? 0)
       : 0);
 }

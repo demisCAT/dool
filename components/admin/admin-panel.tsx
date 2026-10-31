@@ -11,7 +11,11 @@ import type {
 } from "@/lib/types";
 import { formatPrice, formatDate, toDateKey, todayKey } from "@/lib/format";
 import { formatDistance } from "@/lib/distance";
-import { DELIVERY_TARIFF_THRESHOLD_METERS } from "@/lib/pricing";
+import {
+  DELIVERY_MAX_DISTANCE_MAX_KM,
+  DELIVERY_MAX_DISTANCE_MIN_KM,
+  DELIVERY_TARIFF_THRESHOLD_METERS,
+} from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -88,6 +92,9 @@ export function AdminPanel({
   const [deliveryFee, setDeliveryFee] = useState(String(settings.deliveryFee));
   const [deliveryFeeOver2Km, setDeliveryFeeOver2Km] = useState(
     settings.deliveryFeeOver2Km === null ? "" : String(settings.deliveryFeeOver2Km)
+  );
+  const [deliveryMaxDistanceKm, setDeliveryMaxDistanceKm] = useState(
+    String(Math.round(settings.deliveryMaxDistanceMeters / 1000))
   );
   const [noSideDiscount, setNoSideDiscount] = useState(
     String(settings.noSideDiscount)
@@ -358,6 +365,8 @@ export function AdminPanel({
                 onChange={setDeliveryFee}
                 valueOver2Km={deliveryFeeOver2Km}
                 onChangeOver2Km={setDeliveryFeeOver2Km}
+                maxDistanceKm={deliveryMaxDistanceKm}
+                onChangeMaxDistanceKm={setDeliveryMaxDistanceKm}
                 action={feeAction}
                 pending={feePending}
                 state={feeState}
@@ -1216,6 +1225,8 @@ function DeliveryFeeForm({
   onChange,
   valueOver2Km,
   onChangeOver2Km,
+  maxDistanceKm,
+  onChangeMaxDistanceKm,
   action,
   pending,
   state,
@@ -1224,6 +1235,8 @@ function DeliveryFeeForm({
   onChange: (value: string) => void;
   valueOver2Km: string;
   onChangeOver2Km: (value: string) => void;
+  maxDistanceKm: string;
+  onChangeMaxDistanceKm: (value: string) => void;
   action: (formData: FormData) => void;
   pending: boolean;
   state: { error: string | null; ok?: boolean };
@@ -1232,7 +1245,7 @@ function DeliveryFeeForm({
     <section className="border-b-2 border-dashed border-ink/10 pb-8">
       <h2 className="font-display text-2xl text-pine">Tarifas de despacho</h2>
       <p className="mt-1 text-sm text-ink/60">
-        Se calcula la distancia en línea recta desde el local. Hasta 2 km, inclusive, se aplica la Tarifa 1; sobre 2 km, la Tarifa 2. El retiro es gratis. Configura ambas tarifas para habilitar cada tramo.
+        Se calcula la distancia en línea recta desde el local. Hasta 2 km, inclusive, se aplica la Tarifa 1; sobre 2 km, la Tarifa 2. El despacho se ofrece hasta la distancia máxima indicada; más lejos, solo retiro en local. Configura ambas tarifas para habilitar cada tramo.
       </p>
       <form action={action} className="mt-5 flex flex-col gap-4">
         <div className="grid max-w-lg gap-4 sm:grid-cols-2">
@@ -1268,12 +1281,31 @@ function DeliveryFeeForm({
               className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
             />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="delivery-max-distance" className="text-sm font-bold text-pine">
+              Distancia máxima de despacho (km)
+            </label>
+            <input
+              id="delivery-max-distance"
+              name="delivery_max_distance_km"
+              type="number"
+              min={DELIVERY_MAX_DISTANCE_MIN_KM}
+              max={DELIVERY_MAX_DISTANCE_MAX_KM}
+              step={1}
+              required
+              value={maxDistanceKm}
+              onChange={(e) => onChangeMaxDistanceKm(e.target.value)}
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
         </div>
         {state.error && (
           <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>
         )}
         {state.ok && (
-          <p className="text-sm font-semibold text-pine">Tarifas guardadas.</p>
+          <p className="text-sm font-semibold text-pine">
+            Tarifas y distancia máxima guardadas.
+          </p>
         )}
         <button
           type="submit"

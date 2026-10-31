@@ -11,10 +11,18 @@ import {
   NO_SIDE_DISCOUNT_KEY,
   DELIVERY_FEE_KEY,
   DELIVERY_FEE_OVER_2KM_KEY,
+  DELIVERY_MAX_DISTANCE_KEY,
+  DELIVERY_MAX_DISTANCE_MIN_KM,
+  DELIVERY_MAX_DISTANCE_MAX_KM,
   deliveryFeeForDistance,
+  isWithinDeliveryRadius,
   type Pricing,
 } from "@/lib/pricing";
-import { straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
+import {
+  formatDistance,
+  straightLineDistanceMeters,
+  type Coordinates,
+} from "@/lib/distance";
 import type { CartItem, OrderForm } from "@/lib/types";
 
 export async function signIn(
@@ -534,6 +542,12 @@ export async function submitOrder(
 
     address = destination.address;
     deliveryDistanceMeters = straightLineDistanceMeters(DELIVERY_ORIGIN, destination.coordinates);
+    if (!isWithinDeliveryRadius(deliveryDistanceMeters, pricing)) {
+      const maxKm = Math.round(pricing.deliveryMaxDistanceMeters / 1000);
+      return {
+        error: `La dirección está a ${formatDistance(deliveryDistanceMeters)} del local y el despacho llega hasta ${maxKm} km. Revisa la dirección o elige retiro en local.`,
+      };
+    }
     const fee = deliveryFeeForDistance(deliveryDistanceMeters, pricing);
     if (fee === null) {
       return { error: "Falta configurar en el panel la Tarifa 2 para distancias mayores a 2 km." };
@@ -622,17 +636,25 @@ export async function saveDeliveryFee(
 ): Promise<{ error: string | null; ok?: boolean }> {
   const firstValue = String(formData.get("delivery_fee") ?? "");
   const secondValue = String(formData.get("delivery_fee_over_2km") ?? "");
+  const maxDistanceValue = String(formData.get("delivery_max_distance_km") ?? "");
   const fee = Number(firstValue);
   const feeOver2Km = Number(secondValue);
+  const maxDistanceKm = Number(maxDistanceValue);
   if (
     !firstValue.trim() ||
     !secondValue.trim() ||
+    !maxDistanceValue.trim() ||
     !Number.isSafeInteger(fee) ||
     fee < 0 ||
     !Number.isSafeInteger(feeOver2Km) ||
-    feeOver2Km < 0
+    feeOver2Km < 0 ||
+    !Number.isSafeInteger(maxDistanceKm) ||
+    maxDistanceKm < DELIVERY_MAX_DISTANCE_MIN_KM ||
+    maxDistanceKm > DELIVERY_MAX_DISTANCE_MAX_KM
   ) {
-    return { error: "Ambas tarifas deben ser montos enteros en pesos (0 o más)." };
+    return {
+      error: `Las tarifas deben ser montos enteros en pesos (0 o más) y la distancia máxima un entero entre ${DELIVERY_MAX_DISTANCE_MIN_KM} y ${DELIVERY_MAX_DISTANCE_MAX_KM} km.`,
+    };
   }
 
   try {
@@ -640,6 +662,7 @@ export async function saveDeliveryFee(
     const { error } = await supabase.from("settings").upsert([
       { key: DELIVERY_FEE_KEY, value: String(fee) },
       { key: DELIVERY_FEE_OVER_2KM_KEY, value: String(feeOver2Km) },
+      { key: DELIVERY_MAX_DISTANCE_KEY, value: String(maxDistanceKm * 1000) },
     ]);
     if (error) throw error;
   } catch (e) {

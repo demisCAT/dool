@@ -71,4 +71,6 @@ export interface RetentionSettings {
   noSideDiscount: number;
   deliveryFee: number;
   deliveryFeeOver2Km: number | null;
+  /** Radio máximo de despacho en metros, configurable en el panel. */
+  deliveryMaxDistanceMeters: number;
 }

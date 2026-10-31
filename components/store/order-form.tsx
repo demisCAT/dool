@@ -8,10 +8,15 @@ import {
   deliveryFeeForDistance,
   DELIVERY_TARIFF_THRESHOLD_METERS,
   effectiveUnitPrice,
+  isWithinDeliveryRadius,
   orderTotal,
   unitDiscount,
 } from "@/lib/pricing";
-import { straightLineDistanceMeters, type Coordinates } from "@/lib/distance";
+import {
+  formatDistance,
+  straightLineDistanceMeters,
+  type Coordinates,
+} from "@/lib/distance";
 import {
   DeliveryAddressAutocomplete,
   type SelectedDeliveryPlace,
@@ -65,8 +70,12 @@ export function OrderForm({
     form.fulfillmentMode === "delivery" && deliveryOrigin && destination
       ? straightLineDistanceMeters(deliveryOrigin, destination)
       : null;
+  const deliveryOutOfRange =
+    deliveryDistanceMeters !== null &&
+    !isWithinDeliveryRadius(deliveryDistanceMeters, pricing);
+  const deliveryMaxKm = Math.round(pricing.deliveryMaxDistanceMeters / 1000);
   const deliveryFee =
-    deliveryDistanceMeters === null
+    deliveryDistanceMeters === null || deliveryOutOfRange
       ? null
       : deliveryFeeForDistance(deliveryDistanceMeters, pricing);
   const addressOk =
@@ -75,6 +84,7 @@ export function OrderForm({
       Boolean(form.deliveryPlaceId) &&
       form.address.length >= 5 &&
       deliveryDistanceMeters !== null &&
+      !deliveryOutOfRange &&
       deliveryFee !== null);
   // Si el usuario eligió el punto más cercano, la nota es obligatoria
   // para describir su dirección real.
@@ -307,11 +317,13 @@ export function OrderForm({
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-semibold text-pine">Despacho a domicilio</span>
                       <span>
-                        {deliveryFee === null
-                          ? deliveryDistanceMeters === null
-                            ? "Selecciona una dirección"
-                            : "Tarifa 2 pendiente de configurar"
-                          : formatPrice(deliveryFee)}
+                        {deliveryOutOfRange
+                          ? `Fuera del radio (máx. ${deliveryMaxKm} km)`
+                          : deliveryFee === null
+                            ? deliveryDistanceMeters === null
+                              ? "Selecciona una dirección"
+                              : "Tarifa 2 pendiente de configurar"
+                            : formatPrice(deliveryFee)}
                       </span>
                     </div>
                   </li>
@@ -319,11 +331,13 @@ export function OrderForm({
                 <li className="flex items-center justify-between gap-3 border-t border-ink/10 p-4">
                   <span className="font-display text-xl text-pine">Total</span>
                   <span className="font-display text-2xl text-butter-deep">
-                    {form.fulfillmentMode === "delivery" &&
-                    deliveryDistanceMeters !== null &&
-                    deliveryFee === null
-                      ? "Configura Tarifa 2"
-                      : formatPrice(finalTotal)}
+                    {form.fulfillmentMode === "delivery" && deliveryOutOfRange
+                      ? "Ajusta la dirección"
+                      : form.fulfillmentMode === "delivery" &&
+                          deliveryDistanceMeters !== null &&
+                          deliveryFee === null
+                        ? "Configura Tarifa 2"
+                        : formatPrice(finalTotal)}
                   </span>
                 </li>
               </ul>
@@ -455,9 +469,20 @@ export function OrderForm({
                 )}
                 <p className="text-xs text-ink/55">
                   Selecciona una sugerencia para validar la ubicación y calcular la distancia en línea recta desde el local.
+                  El despacho se ofrece hasta {deliveryMaxKm} km.
                   {form.needsNearestAddress &&
                     " Si tu dirección exacta no aparece, usa el punto más cercano que sí aparezca."}
                 </p>
+                {deliveryOutOfRange && deliveryDistanceMeters !== null && (
+                  <p
+                    role="alert"
+                    className="rounded-md bg-red-100 px-3 py-2 text-sm font-semibold text-red-800"
+                  >
+                    Esa dirección está a {formatDistance(deliveryDistanceMeters)} del
+                    local y el despacho llega hasta {deliveryMaxKm} km. Revisa que la
+                    dirección sea en Puerto Natales o elige retiro en local.
+                  </p>
+                )}
               </div>
             )}
 

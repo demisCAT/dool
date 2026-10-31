@@ -10,8 +10,8 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 - Tarjetas compactas con foto a la izquierda en móvil y tablet; en escritorio, tarjetas verticales. Las fotografías del menú se sirven mediante `next/image`.
 - Carrito persistente en `localStorage`, con variantes por acompañamiento y cantidades.
 - Para platos marcados «con acompañamiento», selector de una opción activa o «Sin acompañamiento». Esta última aplica un **descuento fijo global por unidad**, configurable en admin; el precio nunca baja de $0.
-- Formulario con nombre, teléfono, fecha y modalidad obligatoria. Para despacho se selecciona una dirección sugerida por Google Maps; se calcula la distancia recta desde el pin fijo del local (`lib/location.ts`): hasta 2 km inclusive usa Tarifa 1; más de 2 km, Tarifa 2. Se muestran dirección, distancia, tarifa y total.
-- El servidor vuelve a consultar el Place ID y recalcula distancia/tarifa antes de guardar. No se acepta texto libre sin selección de una sugerencia válida de Chile.
+- Formulario con nombre, teléfono, fecha y modalidad obligatoria. Para despacho se selecciona una dirección sugerida por Google Maps; se calcula la distancia recta desde el pin fijo del local (`lib/location.ts`): hasta 2 km inclusive usa Tarifa 1; más de 2 km, Tarifa 2. El despacho se limita a un radio máximo configurable (10 km por defecto); más lejos solo se ofrece retiro en local. Se muestran dirección, distancia, tarifa y total.
+- El servidor vuelve a consultar el Place ID, recalcula distancia/tarifa y rechaza direcciones fuera del radio máximo antes de guardar. No se acepta texto libre sin selección de una sugerencia válida de Chile.
 - Antes de abrir WhatsApp, el pedido se guarda en Supabase. El mensaje incluye modalidad, dirección cuando corresponde, desglose, total y fecha en formato `dd-MM-yyyy`. Tras abrir WhatsApp, el cliente confirma manualmente si lo envió.
 - Dirección del local (Carlos Condell 1546, Puerto Natales, Chile) con enlace a Google Maps en «Cómo pedir» y en el pie de página. El número telefónico se revela solo al hacer clic para reducir la captación por bots.
 
@@ -22,7 +22,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 - Categorías y acompañamientos: gestión y orden manual mediante flechas. Los acompañamientos tienen disponibilidad independiente.
 - «Acompañamientos»: ajuste global **Descuento sin acompañamiento** en CLP (0 lo desactiva).
 - «Pedidos»: listado con estado, modalidad, dirección, distancia recta, tarifa aplicada y total. Filtro por fecha, «Marcar recibido» y «Borrar».
-- Después del listado: **Vencimiento de pedidos** y luego **Tarifas de despacho** en CLP: Tarifa 1 (≤2 km) y Tarifa 2 (>2 km).
+- Después del listado: **Vencimiento de pedidos** y luego **Tarifas de despacho**: Tarifa 1 (≤2 km) y Tarifa 2 (>2 km) en CLP, más la **distancia máxima de despacho** en km enteros (1 a 100).
 - Limpieza de pedidos vencidos al abrir el admin y mediante cron diario de Vercel.
 
 ## Stack
@@ -37,7 +37,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 
 **Proyecto nuevo:** ejecuta [`supabase/schema.sql`](supabase/schema.sql) en Supabase → SQL Editor. Crea tablas, políticas RLS, función de limpieza, bucket público `products` y categorías/acompañamientos de ejemplo. Personaliza los datos desde el admin.
 
-**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Si aún no tiene retiro/despacho, ejecuta primero [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql). Ejecuta también [`supabase/delivery-distance-migration.sql`](supabase/delivery-distance-migration.sql) antes del despliegue del cálculo por distancia; agrega `delivery_distance_m` y deja NULL en pedidos históricos. `delivery_fee_over_2km` se crea al guardar ambas tarifas desde admin.
+**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Si aún no tiene retiro/despacho, ejecuta primero [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql). Ejecuta también [`supabase/delivery-distance-migration.sql`](supabase/delivery-distance-migration.sql) antes del despliegue del cálculo por distancia; agrega `delivery_distance_m` y deja NULL en pedidos históricos. Para el radio máximo, ejecuta [`supabase/delivery-radius-migration.sql`](supabase/delivery-radius-migration.sql); sin esa fila la app asume 10 km. `delivery_fee_over_2km` se crea al guardar ambas tarifas desde admin.
 
 ### 2. Variables de entorno
 
@@ -60,7 +60,7 @@ La clave del navegador debe restringirse por dominio y autorizar Maps JavaScript
 
 1. Crea el usuario en Supabase → Authentication → Users (confirma el correo); desactiva los registros públicos por email si no los necesitas.
 2. Entra a `/admin` con ese usuario.
-3. Configura «Descuento sin acompañamiento» en **Acompañamientos** y ambas tarifas en **Pedidos**. Tarifa 2 queda sin configurar hasta guardarla; no se aceptarán despachos de más de 2 km mientras falte.
+3. Configura «Descuento sin acompañamiento» en **Acompañamientos** y, en **Pedidos**, ambas tarifas y la distancia máxima de despacho. Tarifa 2 queda sin configurar hasta guardarla; no se aceptarán despachos de más de 2 km mientras falte.
 4. Agrega y activa productos; marca «con acompañamiento» solo donde corresponda.
 
 ## Desarrollo y despliegue
@@ -82,9 +82,9 @@ No hay suite de tests automatizada. El despliegue en Vercel requiere las variabl
 
 ## Precios y pedidos
 
-`lib/pricing.ts` centraliza el descuento por «Sin acompañamiento», el subtotal y las tarifas. `lib/distance.ts` calcula Haversine desde `DELIVERY_ORIGIN` en `lib/location.ts`; exactamente 2.000 m usa Tarifa 1 y cualquier distancia superior usa Tarifa 2. El navegador muestra una estimación; `submitOrder` valida el Place ID con Places API en el servidor y recalcula tarifa/total antes de guardar. Cada pedido conserva `delivery_distance_m` y `delivery_fee` aplicados.
+`lib/pricing.ts` centraliza el descuento por «Sin acompañamiento», el subtotal, las tarifas y el radio máximo de despacho. `lib/distance.ts` calcula Haversine desde `DELIVERY_ORIGIN` en `lib/location.ts`; exactamente 2.000 m usa Tarifa 1 y cualquier distancia superior usa Tarifa 2. La distancia máxima se guarda en `settings` como `delivery_max_distance_m` y se configura en km enteros desde Admin > Pedidos; si falta, se asume 10.000 m. El navegador muestra una estimación y bloquea el envío fuera de radio; `submitOrder` valida el Place ID con Places API en el servidor, recalcula tarifa/total y rechaza la dirección fuera de radio antes de guardar. Cada pedido conserva `delivery_distance_m` y `delivery_fee` aplicados.
 
-**Cobertura geográfica pendiente:** las sugerencias actuales están restringidas a Chile y sesgadas alrededor del local; esto no limita estrictamente los resultados a la comuna de Natales. La restricción administrativa con polígono comunal está pendiente de diseño.
+**Cobertura geográfica:** las sugerencias están restringidas a Chile y sesgadas alrededor del local; la validación del radio máximo se aplica al seleccionar una dirección y se repite en el servidor. No se usa un polígono comunal.
 
 La tabla `orders` conserva modalidad, dirección canónica, distancia en metros, tarifa cobrada, artículos y total. WhatsApp incluye distancia recta y tarifa. El carrito continúa en `localStorage` hasta que el cliente confirma el envío.
 
@@ -103,6 +103,7 @@ lib/supabase/               Clientes y consultas públicas
 supabase/schema.sql         Esquema completo para proyectos nuevos
 supabase/delivery-migration.sql  Actualización para bases existentes
 supabase/delivery-distance-migration.sql  Agrega distancia a pedidos existentes
+supabase/delivery-radius-migration.sql    Agrega el radio máximo (10 km)
 ```
 
 Los iconos de marca están en `app/favicon.ico`, `app/icon.png` y `app/apple-icon.png`. El emblema de la tienda está en `public/logo-emblem.png`; el footer permanece tipográfico.

@@ -25,6 +25,7 @@ export default async function Home() {
           noSideDiscount: 0,
           deliveryFee: 0,
           deliveryFeeOver2Km: null,
+          deliveryMaxDistanceMeters: 10_000,
         },
       };
   const mapsBrowserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";

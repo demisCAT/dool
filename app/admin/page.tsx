@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
 import { getStoreData } from "@/lib/supabase/queries";
 import { AdminPanel } from "@/components/admin/admin-panel";
+import { DELIVERY_MAX_DISTANCE_DEFAULT_METERS } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,7 @@ export default async function AdminPage() {
     (settingsRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
 
+  const storedMaxDistance = Number(settingsMap["delivery_max_distance_m"]);
   const settings = {
     pendingDays: Number(settingsMap["order_retention_pending_days"] ?? 5),
     receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
@@ -77,6 +79,10 @@ export default async function AdminPage() {
       settingsMap["delivery_fee_over_2km"] === undefined
         ? null
         : Math.max(0, Number(settingsMap["delivery_fee_over_2km"])),
+    deliveryMaxDistanceMeters:
+      Number.isSafeInteger(storedMaxDistance) && storedMaxDistance > 0
+        ? storedMaxDistance
+        : DELIVERY_MAX_DISTANCE_DEFAULT_METERS,
   };
 
   return (
