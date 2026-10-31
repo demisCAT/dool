@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
-import { DELIVERY_ORIGIN } from "@/lib/location";
+import { DELIVERY_ORIGIN, isValidDeliveryNumber } from "@/lib/location";
 import {
   effectiveUnitPrice,
   orderTotal,
@@ -476,7 +476,12 @@ export async function submitOrder(
 ): Promise<{
   error: string | null;
   pricing?: Pricing;
-  deliveryQuote?: { address: string; distanceMeters: number; fee: number };
+  deliveryQuote?: {
+    address: string;
+    distanceMeters: number;
+    fee: number | null;
+    pending: boolean;
+  };
 }> {
   const name = form.name.trim();
   const phone = form.phone.trim();
@@ -484,8 +489,15 @@ export async function submitOrder(
   const note = form.note.trim();
   const mode = form.fulfillmentMode;
   const placeId = mode === "delivery" ? String(form.deliveryPlaceId ?? "").trim() : "";
+  const deliveryNumberUnknown =
+    mode === "delivery" && Boolean(form.deliveryNumberUnknown);
+  const deliveryNumber =
+    mode === "delivery" && !deliveryNumberUnknown
+      ? String(form.deliveryNumber ?? "").trim()
+      : "";
   let address = "";
   let deliveryDistanceMeters: number | null = null;
+  let deliveryFeePending = false;
 
   if (
     name.length < 2 ||
@@ -504,6 +516,12 @@ export async function submitOrder(
   }
   if (mode === "delivery" && (!placeId || placeId.length > 512)) {
     return { error: "Busca y selecciona una dirección de las sugerencias de Google Maps." };
+  }
+  if (deliveryNumber && !isValidDeliveryNumber(deliveryNumber)) {
+    return {
+      error:
+        "Ingresa solo el número de la dirección (ej. 1546 o 1546 B) o marca que no lo tienes.",
+    };
   }
 
   const supabase = await createServerClientInstance();
@@ -525,7 +543,14 @@ export async function submitOrder(
     )
   );
 
-  let deliveryQuote: { address: string; distanceMeters: number; fee: number } | undefined;
+  let deliveryQuote:
+    | {
+        address: string;
+        distanceMeters: number;
+        fee: number | null;
+        pending: boolean;
+      }
+    | undefined;
   if (mode === "delivery") {
     const serverMapsKey = process.env.GOOGLE_MAPS_SERVER_API_KEY;
     if (!serverMapsKey) {
@@ -548,15 +573,46 @@ export async function submitOrder(
         error: `La dirección está a ${formatDistance(deliveryDistanceMeters)} del local y el despacho llega hasta ${maxKm} km. Revisa la dirección o elige retiro en local.`,
       };
     }
-    const fee = deliveryFeeForDistance(deliveryDistanceMeters, pricing);
-    if (fee === null) {
+    // El número escrito por el usuario habilita el cálculo; si no hay número,
+    // la tarifa queda pendiente y la nota es obligatoria para describir la
+    // dirección real. Google solo prellena el campo en el navegador.
+    const effectiveNumber = deliveryNumber;
+    const feePending = !effectiveNumber;
+    if (feePending && note.length < 10) {
+      return {
+        error:
+          "No indicaste el número de tu dirección. Descríbela en la nota (calle, número si lo sabes, block o departamento y referencias) para confirmar el despacho.",
+      };
+    }
+    if (effectiveNumber) {
+      address = addDeliveryNumberToAddress(
+        destination.address,
+        destination.streetNumber,
+        effectiveNumber
+      );
+    }
+    const fee = feePending
+      ? null
+      : deliveryFeeForDistance(deliveryDistanceMeters, pricing);
+    if (!feePending && fee === null) {
       return { error: "Falta configurar en el panel la Tarifa 2 para distancias mayores a 2 km." };
     }
-    deliveryQuote = { address, distanceMeters: deliveryDistanceMeters, fee };
+    deliveryFeePending = feePending;
+    deliveryQuote = {
+      address,
+      distanceMeters: deliveryDistanceMeters,
+      fee,
+      pending: feePending,
+    };
   }
 
   const deliveryFee = deliveryQuote?.fee ?? 0;
-  const total = orderTotal(items, pricing, mode, deliveryDistanceMeters);
+  const total = orderTotal(
+    items,
+    pricing,
+    mode,
+    deliveryFeePending ? null : deliveryDistanceMeters
+  );
 
   const { error } = await supabase.from("orders").insert({
     name,
@@ -565,6 +621,7 @@ export async function submitOrder(
     fulfillment_mode: mode,
     address,
     delivery_fee: deliveryFee,
+    delivery_fee_pending: deliveryFeePending,
     delivery_distance_m: deliveryDistanceMeters,
     note,
     items: items.map((item) => ({
@@ -582,10 +639,41 @@ export async function submitOrder(
   return { error: null, pricing, deliveryQuote };
 }
 
+/**
+ * Agrega el número escrito por el usuario a la dirección de Google.
+ * Si Google ya trae un número distinto, lo reemplaza al final de la calle
+ * para no duplicarlo y mantener comuna/región al final del texto.
+ */
+function addDeliveryNumberToAddress(
+  address: string,
+  googleNumber: string | null,
+  number: string
+): string {
+  const google = googleNumber?.trim() ?? "";
+  if (!number || number === google) return address;
+
+  const [street, ...rest] = address.split(",");
+  if (rest.length === 0) return `${street.trim()} ${number}`;
+
+  const index = google ? street.lastIndexOf(google) : -1;
+  const streetWithNumber =
+    index !== -1
+      ? `${street.slice(0, index)}${number}${street.slice(index + google.length)}`
+      : `${street.trim()} ${number}`;
+
+  return [streetWithNumber.trim(), ...rest.map((part) => part.trim())].join(
+    ", "
+  );
+}
+
 async function resolveDeliveryPlace(
   placeId: string,
   apiKey: string
-): Promise<{ address: string; coordinates: Coordinates } | null> {
+): Promise<{
+  address: string;
+  coordinates: Coordinates;
+  streetNumber: string | null;
+} | null> {
   try {
     const response = await fetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=es&regionCode=CL`,
@@ -621,9 +709,15 @@ async function resolveDeliveryPlace(
       return null;
     }
 
+    const streetNumber =
+      place.addressComponents
+        ?.find((component) => component.types?.includes("street_number"))
+        ?.shortText?.trim() || null;
+
     return {
       address: place.formattedAddress,
       coordinates: { latitude, longitude },
+      streetNumber,
     };
   } catch {
     return null;

@@ -38,7 +38,8 @@ export function buildOrderMessage(
   items: CartItem[],
   form: OrderForm,
   pricing: Pricing,
-  deliveryDistanceMeters: number | null = null
+  deliveryDistanceMeters: number | null = null,
+  deliveryFeePending = false
 ): string {
   const lines = items.map(({ product, qty, side }) => {
     const sideText = product.with_side
@@ -53,7 +54,7 @@ export function buildOrderMessage(
   const total = itemsTotal(items, pricing);
   const isDelivery = form.fulfillmentMode === "delivery";
   const deliveryFee =
-    isDelivery && deliveryDistanceMeters !== null
+    isDelivery && deliveryDistanceMeters !== null && !deliveryFeePending
       ? deliveryFeeForDistance(deliveryDistanceMeters, pricing)
       : 0;
 
@@ -63,11 +64,20 @@ export function buildOrderMessage(
     ...lines,
     "",
     `Subtotal: ${formatPrice(total)}`,
-    ...(isDelivery && deliveryDistanceMeters !== null
-      ? [`Despacho a domicilio: ${formatPrice(deliveryFee ?? 0)}`]
+    ...(isDelivery
+      ? [
+          `Despacho a domicilio: ${
+            deliveryFeePending ? "por confirmar" : formatPrice(deliveryFee ?? 0)
+          }`,
+        ]
       : []),
-    `Total: ${formatPrice(
-      orderTotal(items, pricing, form.fulfillmentMode, deliveryDistanceMeters)
+    `${deliveryFeePending ? "Total (sin despacho)" : "Total"}: ${formatPrice(
+      orderTotal(
+        items,
+        pricing,
+        form.fulfillmentMode,
+        deliveryFeePending ? null : deliveryDistanceMeters
+      )
     )}`,
     "",
     `Nombre: ${form.name}`,
@@ -77,7 +87,7 @@ export function buildOrderMessage(
       ? [
           `Dirección de entrega: ${shortenDeliveryAddress(form.address)}${
             form.needsNearestAddress ? " (punto más cercano)" : ""
-          }`,
+          }${deliveryFeePending ? " (sin número; ver nota)" : ""}`,
         ]
       : []),
     `Fecha de ${isDelivery ? "entrega" : "retiro"}: ${formatWhatsAppDate(form.deliveryDate)}`,

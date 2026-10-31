@@ -43,6 +43,7 @@ create table if not exists public.orders (
   fulfillment_mode text not null default 'pickup' check (fulfillment_mode in ('pickup', 'delivery')),
   address text not null default '',
   delivery_fee integer not null default 0 check (delivery_fee >= 0),
+  delivery_fee_pending boolean not null default false,
   delivery_distance_m integer check (delivery_distance_m >= 0),
   note text not null default '',
   items jsonb not null,

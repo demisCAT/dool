@@ -1477,6 +1477,11 @@ function OrderList({ orders }: { orders: Order[] }) {
                 </span>
                 <span className="ml-auto font-display text-lg text-butter-deep">
                   {formatPrice(o.total)}
+                  {o.delivery_fee_pending && (
+                    <span className="ml-1 text-xs font-normal text-ink/50">
+                      (sin despacho)
+                    </span>
+                  )}
                 </span>
               </div>
 
@@ -1489,7 +1494,16 @@ function OrderList({ orders }: { orders: Order[] }) {
               </p>
               {o.fulfillment_mode === "delivery" && o.delivery_distance_m !== null && (
                 <p className="text-sm text-ink/60">
-                  Distancia en línea recta: {formatDistance(o.delivery_distance_m)} · Tarifa {o.delivery_distance_m > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}
+                  Distancia en línea recta: {formatDistance(o.delivery_distance_m)} ·{" "}
+                  {o.delivery_fee_pending
+                    ? "Tarifa por confirmar"
+                    : `Tarifa ${o.delivery_distance_m > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}`}
+                </p>
+              )}
+              {o.fulfillment_mode === "delivery" && o.delivery_fee_pending && (
+                <p className="text-sm font-semibold text-butter-deep">
+                  Sin número en la dirección: revisa la nota y confirma la tarifa
+                  por WhatsApp.
                 </p>
               )}
 
@@ -1511,7 +1525,11 @@ function OrderList({ orders }: { orders: Order[] }) {
                 {o.fulfillment_mode === "delivery" && (
                   <li className="flex items-baseline justify-between gap-2 border-t border-ink/10 py-1">
                     <span>Tarifa de despacho</span>
-                    <span>{formatPrice(o.delivery_fee)}</span>
+                    <span>
+                      {o.delivery_fee_pending
+                        ? "Por confirmar"
+                        : formatPrice(o.delivery_fee)}
+                    </span>
                   </li>
                 )}
               </ul>

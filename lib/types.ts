@@ -42,6 +42,10 @@ export interface OrderForm {
   fulfillmentMode: FulfillmentMode | "";
   address: string;
   deliveryPlaceId: string;
+  /** Número de calle escrito por el usuario (o prellenado desde Google). */
+  deliveryNumber: string;
+  /** El usuario no tiene el número o la dirección no tiene número. */
+  deliveryNumberUnknown: boolean;
   note: string;
   /** El usuario no encontró su dirección exacta y usará la más cercana. */
   needsNearestAddress: boolean;
@@ -57,6 +61,7 @@ export interface Order {
   fulfillment_mode: FulfillmentMode;
   address: string;
   delivery_fee: number;
+  delivery_fee_pending: boolean;
   delivery_distance_m: number | null;
   note: string;
   items: CartItem[];

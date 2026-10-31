@@ -8,11 +8,18 @@ export interface SelectedDeliveryPlace {
   placeId: string;
   address: string;
   coordinates: Coordinates;
+  /** Número de calle que entrega Google, si existe. */
+  streetNumber: string | null;
 }
 
 interface GooglePlace {
   id?: string;
   formattedAddress?: string;
+  addressComponents?: Array<{
+    longText?: string;
+    shortText?: string;
+    types?: string[];
+  }>;
   location?: {
     lat(): number;
     lng(): number;
@@ -104,7 +111,9 @@ export function DeliveryAddressAutocomplete({
 
           setError(null);
           void place
-            .fetchFields({ fields: ["formattedAddress", "location"] })
+            .fetchFields({
+              fields: ["formattedAddress", "location", "addressComponents"],
+            })
             .then(() => {
               if (disposed || currentVersion !== selectionVersion) return;
               const latitude = place.location?.lat();
@@ -123,10 +132,18 @@ export function DeliveryAddressAutocomplete({
                 return;
               }
 
+              const streetNumber =
+                place.addressComponents
+                  ?.find((component) =>
+                    component.types?.includes("street_number")
+                  )
+                  ?.shortText?.trim() || null;
+
               onSelect({
                 placeId: place.id!,
                 address: place.formattedAddress,
                 coordinates: { latitude, longitude },
+                streetNumber,
               });
             })
             .catch(() => {

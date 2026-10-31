@@ -58,7 +58,7 @@ export default async function AdminPage() {
 
   const { data: allOrders } = await supabase
     .from("orders")
-    .select("id, name, phone, delivery_date, fulfillment_mode, address, delivery_fee, delivery_distance_m, note, items, total, status, created_at")
+    .select("id, name, phone, delivery_date, fulfillment_mode, address, delivery_fee, delivery_fee_pending, delivery_distance_m, note, items, total, status, created_at")
     .order("created_at", { ascending: false });
 
   const { data: settingsRows } = await supabase
