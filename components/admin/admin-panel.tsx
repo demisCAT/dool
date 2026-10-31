@@ -777,27 +777,26 @@ function ProductList({
                         />
                       )}
                     </div>
-                    <div className="flex justify-center">
-                      {byCategory ? (
+                    <div className="flex flex-col items-center gap-1.5">
+                      {p.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.image_url}
+                          alt=""
+                          className="h-12 w-16 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
+                          <span className="font-display text-[10px] text-pine/40">DN</span>
+                        </div>
+                      )}
+                      {byCategory && (
                         <ActiveToggle
                           active={p.active}
                           titleOn="Activar plato"
                           titleOff="Desactivar plato"
                           onToggle={(next) => toggleProductActive(p.id, next)}
                         />
-                      ) : (
-                        p.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={p.image_url}
-                            alt=""
-                            className="h-12 w-16 rounded-md object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
-                            <span className="font-display text-[10px] text-pine/40">DN</span>
-                          </div>
-                        )
                       )}
                     </div>
                     <div className="min-w-0">
