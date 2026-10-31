@@ -86,8 +86,6 @@ export function buildOrderMessage(
     ...(isDelivery
       ? [
           `Dirección de entrega: ${shortenDeliveryAddress(form.address)}${
-            form.needsNearestAddress ? " (punto más cercano)" : ""
-          }${
             deliveryFeePending
               ? " (sin número; confirma número y referencias por este chat)"
               : ""

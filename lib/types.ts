@@ -47,8 +47,6 @@ export interface OrderForm {
   /** El usuario no tiene el número o la dirección no tiene número. */
   deliveryNumberUnknown: boolean;
   note: string;
-  /** El usuario no encontró su dirección exacta y usará la más cercana. */
-  needsNearestAddress: boolean;
 }
 
 export type OrderStatus = "pendiente" | "recibido";

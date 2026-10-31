@@ -561,7 +561,7 @@ export async function submitOrder(
     if (!destination) {
       return {
         error:
-          "No pudimos validar esa dirección. Si tu dirección exacta no aparece, selecciona el punto más cercano que sí aparezca y describe tu dirección real en la nota.",
+          "No pudimos validar esa dirección. Revisa la sugerencia de Google Maps o describe tu dirección real en la nota.",
       };
     }
 

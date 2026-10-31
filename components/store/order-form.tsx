@@ -40,7 +40,6 @@ const INITIAL_FORM: OrderForm = {
   deliveryNumber: "",
   deliveryNumberUnknown: false,
   note: "",
-  needsNearestAddress: false,
 };
 
 export function OrderForm({
@@ -103,14 +102,10 @@ export function OrderForm({
       !deliveryOutOfRange &&
       deliveryNumberOk &&
       (deliveryFeePending || deliveryFee !== null));
-  // La nota solo es obligatoria con el punto más cercano. Sin número la
-  // dirección se puede confirmar por WhatsApp, así que la nota es opcional.
-  const deliveryNotesNeeded =
-    form.fulfillmentMode === "delivery" && form.needsNearestAddress;
-  const noteOptionalForPending = deliveryFeePending && !deliveryNotesNeeded;
-  const noteOk = !deliveryNotesNeeded || form.note.trim().length >= 10;
+  // Sin número la dirección se confirma por WhatsApp: la nota es opcional.
+  const noteOptionalForPending = deliveryFeePending;
   const formOk =
-    nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk && noteOk;
+    nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk;
   const finalTotal = orderTotal(
     items,
     pricing,
@@ -132,20 +127,6 @@ export function OrderForm({
     },
     []
   );
-
-  const handleNearestToggle = (checked: boolean) => {
-    // Al cambiar la modalidad de dirección, se limpia la selección previa.
-    setForm((current) => ({
-      ...current,
-      needsNearestAddress: checked,
-      address: "",
-      deliveryPlaceId: "",
-      deliveryNumber: "",
-      deliveryNumberUnknown: false,
-    }));
-    setDestination(null);
-    setSubmitError(null);
-  };
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -337,9 +318,6 @@ export function OrderForm({
                       <p className="text-ink/60">
                         Tarifa{" "}
                         {deliveryDistanceMeters > DELIVERY_TARIFF_THRESHOLD_METERS ? "2" : "1"}
-                        {form.needsNearestAddress && (
-                          <span className="ml-1 text-butter-deep">· hacia el punto más cercano</span>
-                        )}
                       </p>
                     )}
                     <div className="flex items-center justify-between gap-3">
@@ -534,44 +512,20 @@ export function OrderForm({
                         )}
                         {deliveryFeePending && (
                           <p className="text-sm text-ink/70">
-                            Sin número no calcularemos la tarifa de despacho.{" "}
-                            {deliveryNotesNeeded
-                              ? "Describe tu dirección real en la nota (obligatoria) y la confirmaremos por WhatsApp."
-                              : "Puedes escribir tu dirección en la nota (opcional); la confirmaremos por WhatsApp."}
+                            Sin número no calcularemos la tarifa de despacho. Puedes
+                            escribir tu dirección en la nota (opcional); la
+                            confirmaremos por WhatsApp.
                           </p>
                         )}
                       </div>
                     )}
-                    <label className="flex items-start gap-3 rounded-lg border-2 border-ink/15 bg-cream px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={form.needsNearestAddress}
-                        onChange={(e) => handleNearestToggle(e.target.checked)}
-                        className="mt-0.5 h-5 w-5 shrink-0 accent-pine"
-                      />
-                      <span className="text-sm text-ink/75">
-                        No encuentro mi dirección exacta: seleccionaré el punto más
-                        cercano y la describiré en la nota.
-                      </span>
-                    </label>
                   </>
-                )}
-                {form.needsNearestAddress && (
-                  <p className="rounded-md bg-butter-deep/10 px-3 py-2 text-sm text-ink/75">
-                    Selecciona de las sugerencias la dirección o el punto más cercano
-                    a tu casa y describe tu dirección real en la nota (obligatoria):
-                    nombre de la calle, número, block o departamento y referencias.
-                    La distancia y la tarifa se calculan hacia ese punto: si tu casa
-                    queda más lejos, el valor final del despacho podría ser mayor.
-                  </p>
                 )}
                 <p className="text-xs text-ink/55">
                   Selecciona una sugerencia para validar la ubicación y calcular la distancia en línea recta desde el local.
                   El despacho se ofrece hasta {deliveryMaxKm} km. Completa el número
                   si lo conoces; si no lo indicas, la tarifa quedará por confirmar y
                   podrás describir tu dirección en la nota (opcional).
-                  {form.needsNearestAddress &&
-                    " Si tu dirección exacta no aparece, usa el punto más cercano que sí aparezca."}
                 </p>
                 {deliveryOutOfRange && deliveryDistanceMeters !== null && (
                   <p
@@ -589,11 +543,7 @@ export function OrderForm({
             <div className="flex flex-col gap-2">
               <label htmlFor="note" className="text-sm font-bold text-pine">
                 Nota{" "}
-                {deliveryNotesNeeded ? (
-                  <span className="font-normal text-red-700">
-                    (obligatoria: describe tu dirección real)
-                  </span>
-                ) : noteOptionalForPending ? (
+                {noteOptionalForPending ? (
                   <span className="font-normal text-ink/50">
                     (opcional: escribe tu dirección para agilizar)
                   </span>
@@ -605,7 +555,7 @@ export function OrderForm({
                 id="note"
                 rows={3}
                 placeholder={
-                  deliveryNotesNeeded || deliveryFeePending
+                  deliveryFeePending
                     ? "Ej: Villa Esperanza, Pasaje Los Aromos 123, block 2, depto 301, cerca de la plaza"
                     : "Ej: sin cebolla, por favor"
                 }
@@ -613,12 +563,6 @@ export function OrderForm({
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
                 className="rounded-lg border-2 border-ink/15 bg-cream px-4 py-3 text-ink placeholder:text-ink/35 focus:border-butter-deep focus:outline-none"
               />
-              {deliveryNotesNeeded && !noteOk && (
-                <p role="alert" className="text-sm font-semibold text-red-700">
-                  Describe tu dirección real (calle, número, block o departamento y
-                  referencias) para que podamos ubicarte.
-                </p>
-              )}
             </div>
 
             {submitError && (
