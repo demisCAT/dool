@@ -38,7 +38,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 
 **Proyecto nuevo:** ejecuta [`supabase/schema.sql`](supabase/schema.sql) en Supabase → SQL Editor. Crea tablas, políticas RLS, función de limpieza, bucket público `products` y categorías/acompañamientos de ejemplo. Personaliza los datos desde el admin.
 
-**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Si aún no tiene retiro/despacho, ejecuta primero [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql). Ejecuta también [`supabase/delivery-distance-migration.sql`](supabase/delivery-distance-migration.sql) antes del despliegue del cálculo por distancia; agrega `delivery_distance_m` y deja NULL en pedidos históricos. Para el radio máximo, ejecuta [`supabase/delivery-radius-migration.sql`](supabase/delivery-radius-migration.sql); sin esa fila la app asume 10 km. Para las tarifas pendientes por falta de número, ejecuta [`supabase/delivery-fee-pending-migration.sql`](supabase/delivery-fee-pending-migration.sql) antes de desplegar. Para cerrar el insert anónimo directo a pedidos, primero configura `SUPABASE_SERVICE_ROLE_KEY`, despliega el código nuevo y luego ejecuta [`supabase/orders-server-insert-migration.sql`](supabase/orders-server-insert-migration.sql); si ejecutas la migración antes del despliegue, la versión anterior dejará de guardar pedidos. `delivery_fee_over_2km` se crea al guardar ambas tarifas desde admin.
+**Proyecto con tablas ya creadas:** no vuelvas a ejecutar todo el schema (contiene políticas `create policy`). Si aún no tiene retiro/despacho, ejecuta primero [`supabase/delivery-migration.sql`](supabase/delivery-migration.sql). Ejecuta también [`supabase/delivery-distance-migration.sql`](supabase/delivery-distance-migration.sql) antes del despliegue del cálculo por distancia; agrega `delivery_distance_m` y deja NULL en pedidos históricos. Para el radio máximo, ejecuta [`supabase/delivery-radius-migration.sql`](supabase/delivery-radius-migration.sql); sin esa fila la app asume 10 km. Para las tarifas pendientes por falta de número, ejecuta [`supabase/delivery-fee-pending-migration.sql`](supabase/delivery-fee-pending-migration.sql) antes de desplegar. Para cerrar el insert anónimo directo a pedidos, primero configura `SUPABASE_SERVICE_ROLE_KEY`, despliega el código nuevo y luego ejecuta [`supabase/orders-server-insert-migration.sql`](supabase/orders-server-insert-migration.sql); si ejecutas la migración antes del despliegue, la versión anterior dejará de guardar pedidos. Para el rate limiting, ejecuta [`supabase/rate-limit-migration.sql`](supabase/rate-limit-migration.sql). `delivery_fee_over_2km` se crea al guardar ambas tarifas desde admin.
 
 ### 2. Variables de entorno
 
@@ -48,7 +48,8 @@ Copia `.env.example` a `.env.local` y completa:
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública anon de Supabase; la seguridad depende de RLS |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave **solo del servidor** para insertar pedidos validados; nunca `NEXT_PUBLIC_` ni código cliente |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave **solo del servidor** para insertar pedidos validados y ejecutar el rate limiting; nunca `NEXT_PUBLIC_` ni código cliente |
+| `RATE_LIMIT_SECRET` | Opcional, solo servidor: secreto para hashear IP/email en rate limiting; si falta se usa `SUPABASE_SERVICE_ROLE_KEY` |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio, solo dígitos y con código de país (Chile: `56912345678`) |
 | `CRON_SECRET` | Secreto **solo del servidor** para proteger `/api/cron/cleanup-orders`; configurar en Vercel si se usa el cron |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Clave para autocomplete en el navegador; restringir por HTTP referrer y APIs |
@@ -102,6 +103,8 @@ components/admin/           Panel de productos, pedidos y ajustes
 lib/pricing.ts              Cálculo de precios, tarifa y radio de despacho
 lib/whatsapp.ts             Mensaje y URL de wa.me
 lib/location.ts             Dirección pública, pin y validación de número
+lib/order-date.ts           Ventana de fechas de entrega (America/Punta_Arenas)
+lib/rate-limit.ts           Rate limiting con tabla/RPC de Supabase
 lib/supabase/               Clientes, consultas públicas y service_role server-only
 supabase/schema.sql         Esquema completo para proyectos nuevos
 supabase/delivery-migration.sql  Actualización para bases existentes
@@ -110,6 +113,7 @@ supabase/delivery-radius-migration.sql    Agrega el radio máximo (10 km)
 supabase/delivery-fee-pending-migration.sql  Agrega tarifas pendientes por falta de número
 supabase/orders-server-insert-migration.sql  Cierra el insert anónimo de pedidos
 supabase/storage-bucket-limits-migration.sql  Limita MIME y tamaño (5 MB) del bucket products
+supabase/rate-limit-migration.sql  Crea tabla/RPC de rate limiting
 ```
 
 Los iconos de marca están en `app/favicon.ico`, `app/icon.png` y `app/apple-icon.png`. El emblema de la tienda está en `public/logo-emblem.png`; el footer permanece tipográfico.

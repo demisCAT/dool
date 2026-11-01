@@ -26,6 +26,7 @@ import {
 } from "@/lib/distance";
 import { formatWhatsAppDate } from "@/lib/format";
 import { deliveryDateWindow } from "@/lib/order-date";
+import { checkLoginRateLimit, checkOrderRateLimit } from "@/lib/rate-limit";
 import type { CartItem, OrderForm, Product, Side } from "@/lib/types";
 
 export async function signIn(
@@ -37,6 +38,11 @@ export async function signIn(
 
   if (!email || !password) {
     return { error: "Ingresa correo y contraseña." };
+  }
+
+  const rateLimit = await checkLoginRateLimit(email);
+  if (!rateLimit.allowed) {
+    return { error: "Demasiados intentos. Espera unos minutos." };
   }
 
   const supabase = await createServerClientInstance();
@@ -668,6 +674,13 @@ export async function submitOrder(
   }
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "Tu pedido está vacío." };
+  }
+
+  const rateLimit = await checkOrderRateLimit();
+  if (!rateLimit.allowed) {
+    return {
+      error: "Demasiados intentos. Espera unos minutos e intenta de nuevo.",
+    };
   }
   if (mode !== "pickup" && mode !== "delivery") {
     return { error: "Elige retiro en local o despacho a domicilio." };
