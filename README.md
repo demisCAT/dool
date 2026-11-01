@@ -11,7 +11,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 - Carrito persistente en `localStorage`, con variantes por acompañamiento y cantidades.
 - Para platos marcados «con acompañamiento», selector de una opción activa o «Sin acompañamiento». Esta última aplica un **descuento fijo global por unidad**, configurable en admin; el precio nunca baja de $0.
 - Formulario con nombre, teléfono, fecha y modalidad obligatoria. Para despacho se selecciona una dirección sugerida por Google Maps; se calcula la distancia recta desde el pin fijo del local (`lib/location.ts`): hasta 2 km inclusive usa Tarifa 1; más de 2 km, Tarifa 2. El despacho se limita a un radio máximo configurable (10 km por defecto); más lejos solo se ofrece retiro en local. Se muestran dirección, distancia, tarifa y total.
-- El número de calle se prellena con el `street_number` de Google y se puede corregir o escribir si falta. Si no hay número, **no se calcula la tarifa de despacho**: queda «por confirmar», el total muestra solo los productos y la nota queda disponible (opcional) para describir la dirección real. La dirección y la tarifa se confirman por WhatsApp. El número escrito habilita el cálculo aunque Google no lo traiga.
+- El número de calle se prellena con el `street_number` de Google y se puede corregir o escribir si falta; si Google devuelve `S/N` u otro valor no numérico, se trata como sin número. Si no hay número, **no se calcula la tarifa de despacho**: queda «por confirmar», el total muestra solo los productos y la nota queda disponible (opcional) para describir la dirección real. La dirección y la tarifa se confirman por WhatsApp. El número escrito habilita el cálculo aunque Google no lo traiga.
 - El servidor vuelve a consultar el Place ID, recalcula distancia/tarifa, rechaza direcciones fuera del radio máximo y repite la validación del número antes de guardar. No se acepta texto libre sin selección de una sugerencia válida de Chile.
 - Antes de abrir WhatsApp, el pedido se guarda en Supabase. El mensaje incluye modalidad, dirección cuando corresponde, desglose, total y fecha en formato `dd-MM-yyyy`. Tras abrir WhatsApp, el cliente confirma manualmente si lo envió.
 - Dirección del local (Carlos Condell 1546, Puerto Natales, Chile) con enlace a Google Maps en «Cómo pedir» y en el pie de página. El número telefónico se revela solo al hacer clic para reducir la captación por bots.
@@ -19,7 +19,7 @@ Tienda de comida casera en Puerto Natales. El cliente elige platos, selecciona r
 ### Administración (`/admin`)
 
 - Acceso con Supabase Auth; sin variables de Supabase se muestra una pantalla de configuración.
-- Productos: alta, edición, borrado, disponibilidad, fotografías (Storage público) y selección de categoría/acompañamiento. Al filtrar por categoría se muestran en orden de tienda y se pueden reordenar con flechas; en «Todas» se listan alfabéticamente.
+- Productos: alta, edición, borrado, disponibilidad, fotografías (Storage público) y selección de categoría/acompañamiento. Al filtrar por categoría se muestran en orden de tienda, se pueden reordenar con flechas y aparece la columna **Disp.** con el toggle; en «Todas» se listan alfabéticamente. La fotografía se muestra en todos los filtros.
 - Categorías y acompañamientos: gestión y orden manual mediante flechas. Los acompañamientos tienen disponibilidad independiente.
 - «Acompañamientos»: ajuste global **Descuento sin acompañamiento** en CLP (0 lo desactiva).
 - «Pedidos»: listado con estado, modalidad, dirección, distancia recta, tarifa aplicada y total. Los pedidos sin número muestran «Tarifa por confirmar» y un aviso para confirmar número, referencias y tarifa por WhatsApp. Filtro por fecha, «Marcar recibido» y «Borrar».
@@ -97,9 +97,9 @@ app/admin/                  Panel, login y Server Actions
 app/api/cron/               Limpieza automática de pedidos
 components/store/           Menú, pizarra, carrito y pedido
 components/admin/           Panel de productos, pedidos y ajustes
-lib/pricing.ts              Cálculo de precios y tarifa
+lib/pricing.ts              Cálculo de precios, tarifa y radio de despacho
 lib/whatsapp.ts             Mensaje y URL de wa.me
-lib/location.ts             Dirección pública y enlace a Maps
+lib/location.ts             Dirección pública, pin y validación de número
 lib/supabase/               Clientes y consultas públicas
 supabase/schema.sql         Esquema completo para proyectos nuevos
 supabase/delivery-migration.sql  Actualización para bases existentes
