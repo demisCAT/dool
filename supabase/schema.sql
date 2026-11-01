@@ -139,9 +139,17 @@ grant execute on function public.cleanup_expired_orders() to anon, authenticated
 
 -- ============ STORAGE ============
 
-insert into storage.buckets (id, name, public)
-values ('products', 'products', true)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'products',
+  'products',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- Lectura pública de fotos
 create policy "fotos_lectura_publica" on storage.objects

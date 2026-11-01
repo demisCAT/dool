@@ -41,6 +41,13 @@ import { OrderButtons } from "./order-buttons";
 
 type Tab = "productos" | "pedidos" | "categorias" | "acompanamientos";
 
+const ALLOWED_IMAGE_MIMES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/avif": "avif",
+};
+
 const EMPTY_PRODUCT = {
   id: "",
   name: "",
@@ -166,8 +173,9 @@ export function AdminPanel({
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setUploadError("El archivo debe ser una imagen.");
+    const ext = ALLOWED_IMAGE_MIMES[file.type];
+    if (!ext) {
+      setUploadError("Usa una imagen en formato JPG, PNG, WebP o AVIF.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -179,11 +187,10 @@ export function AdminPanel({
     setUploadError(null);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() || "jpg";
       const path = `${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from("products")
-        .upload(path, file, { upsert: false });
+        .upload(path, file, { upsert: false, contentType: file.type });
       if (error) throw error;
 
       const {
@@ -534,7 +541,7 @@ function ProductForm({
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/avif"
               disabled={uploading}
               onChange={(e) => onFile(e.target.files?.[0])}
               className="text-sm text-ink/70 file:mr-3 file:rounded-full file:border-0 file:bg-butter file:px-4 file:py-2 file:text-sm file:font-bold file:text-ink hover:file:bg-butter-deep disabled:opacity-50"

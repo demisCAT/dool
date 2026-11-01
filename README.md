@@ -96,6 +96,7 @@ La tabla `orders` conserva modalidad, dirección canónica, distancia en metros,
 app/page.tsx                 Tienda (server component, force-dynamic)
 app/admin/                  Panel, login y Server Actions
 app/api/cron/               Limpieza automática de pedidos
+proxy.ts                    Refresco de sesión de Supabase en /admin
 components/store/           Menú, pizarra, carrito y pedido
 components/admin/           Panel de productos, pedidos y ajustes
 lib/pricing.ts              Cálculo de precios, tarifa y radio de despacho
@@ -108,6 +109,7 @@ supabase/delivery-distance-migration.sql  Agrega distancia a pedidos existentes
 supabase/delivery-radius-migration.sql    Agrega el radio máximo (10 km)
 supabase/delivery-fee-pending-migration.sql  Agrega tarifas pendientes por falta de número
 supabase/orders-server-insert-migration.sql  Cierra el insert anónimo de pedidos
+supabase/storage-bucket-limits-migration.sql  Limita MIME y tamaño (5 MB) del bucket products
 ```
 
 Los iconos de marca están en `app/favicon.ico`, `app/icon.png` y `app/apple-icon.png`. El emblema de la tienda está en `public/logo-emblem.png`; el footer permanece tipográfico.

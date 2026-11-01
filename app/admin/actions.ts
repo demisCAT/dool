@@ -64,9 +64,15 @@ async function requireUser() {
 
 function productImagePath(imageUrl: string): string | null {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return null;
+    const expectedOrigin = new URL(supabaseUrl).origin;
     const url = new URL(imageUrl);
-    const match = url.pathname.match(/\/storage\/v1\/object\/(?:sign\/)?public\/products\/(.+)$/);
-    return match ? match[1] : null;
+    if (url.origin !== expectedOrigin) return null;
+    const match = url.pathname.match(
+      /^\/storage\/v1\/object\/(?:sign\/)?public\/products\/([A-Za-z0-9._-]+)$/
+    );
+    return match && !match[1].includes("..") ? match[1] : null;
   } catch {
     return null;
   }
@@ -87,6 +93,9 @@ export async function saveProduct(
 
   if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
     return { error: "Completa nombre, categoría y un precio válido." };
+  }
+  if (imageUrl && !productImagePath(imageUrl)) {
+    return { error: "La URL de la fotografía no es válida." };
   }
 
   try {

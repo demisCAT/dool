@@ -41,10 +41,11 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 ## Seguridad
 
 - Solo usar claves públicas en el cliente. La `service_role` solo puede existir como variable server-only (`SUPABASE_SERVICE_ROLE_KEY`) y usarse en `lib/supabase/service.ts` para insertar pedidos; nunca en componentes cliente ni en `NEXT_PUBLIC_*`. La anon key es pública; RLS sigue siendo la frontera para el resto de operaciones.
+- Sesión: cookies de Supabase con `secure` en producción, `sameSite: "lax"` y `maxAge` de 7 días (`lib/supabase/cookie-options.ts`); `proxy.ts` refresca la sesión en `/admin`. `httpOnly` sigue en false porque el upload de fotos usa el cliente de navegador; moverlo a servidor es P1.3b.
 - Toda acción de escritura **administrativa** en `app/admin/actions.ts` debe pasar por `requireUser()` (verificación de sesión), aunque RLS ya proteja. Excepción explícita: `submitOrder` es público para permitir pedidos anónimos; valida modalidad/dirección, reconstruye ítems y precios desde `products`/`sides`, recalcula descuentos/tarifa desde `settings` e inserta con `lib/supabase/service.ts` (service_role server-only). No hay insert público en `orders`.
 - Google Places: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` es visible en el navegador; restringir por referrer y APIs. `GOOGLE_MAPS_SERVER_API_KEY` es privada, solo Places API (New), nunca Git ni `NEXT_PUBLIC_`. Limitar cuotas/alertas en Google Cloud. No confiar en las coordenadas ni tarifa del cliente; `submitOrder` resuelve el Place ID en el servidor.
 - Mantener genérico el mensaje de error del login ("Credenciales incorrectas") para no revelar si el correo existe.
-- Subida de fotos: validar MIME `image/*` y tamaño (5 MB) antes de subir; el path se genera con `crypto.randomUUID()` (nunca usar input del usuario en el path); el bucket `products` es público por diseño — no guardar ahí nada privado.
+- Subida de fotos: validar MIME raster permitido (`image/jpeg`, `image/png`, `image/webp`, `image/avif`) y tamaño (5 MB) antes de subir; derivar la extensión desde el MIME type y generar el path con `crypto.randomUUID()` (nunca usar input del usuario en el path). `saveProduct` valida que `image_url` pertenezca al bucket `products` del proyecto; el bucket `products` es público por diseño y restringe tamaño/MIME en servidor (`supabase/storage-bucket-limits-migration.sql`).
 - `window.open` del enlace wa.me debe conservar `noopener,noreferrer` (anti-tabnabbing).
 - Número de teléfono protegido contra bots: nunca renderizar dígitos en HTML estático; usar `components/store/phone-contact.tsx` (revela el número en el navegador al hacer clic).
 - React escapa el output por defecto; no usar `dangerouslySetInnerHTML` con datos de productos/pedidos.
@@ -66,5 +67,6 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 ## Estructura
 
 - `app/` — tienda (`/`) y admin (`/admin`, `/admin/login`); `page.tsx` de la tienda es server component (`force-dynamic`)
+- `proxy.ts` — refresco de sesión de Supabase para `/admin` (Next 16)
 - `components/store/` — UI tienda (carrito con localStorage en `cart-provider.tsx`); `components/admin/` — panel
 - `lib/` — clientes Supabase (`server.ts`, `client.ts`, `service.ts` server-only), `types.ts`, `format.ts`, `pricing.ts`, `whatsapp.ts`, `location.ts`

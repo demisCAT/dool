@@ -37,6 +37,9 @@ yarn-error.log*
 # memory
 MEMORIA.md
 
+# security
+SECURITY.md
+
 # contenido local (fotos del negocio, se suben desde el admin)
 /images
 
@@ -50,6 +53,10 @@ next-env.d.ts
 # agent skills (instaladas localmente)
 .agents/
 skills-lock.json
+
+# auditoría RLS local (artefactos del skill supabase-audit-rls)
+.sb-pentest-*
+SECURITY.md
 
 # perf profiles de Turbopack
 .next-profiles/
