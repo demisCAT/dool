@@ -650,6 +650,12 @@ function ProductList({
   // Con una categoria seleccionada se muestra el orden de la tienda
   // (por position) para poder reordenar. En "Todas" prima el alfabetico.
   const byCategory = filter !== "all" && filter !== "none";
+  // Con una categoría seleccionada se agrega la columna «Disp.» después
+  // de las flechas de orden; en «Todas»/«Sin categoría» el toggle ocupa
+  // la primera columna.
+  const gridClass = byCategory
+    ? "grid-cols-[3rem_3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem]"
+    : "grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem]";
   const visible = (
     filter === "all"
       ? products
@@ -749,8 +755,11 @@ function ProductList({
             </p>
           ) : (
             <>
-              <div className="mt-6 hidden grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 lg:grid">
+              <div
+                className={`mt-6 hidden items-center gap-4 border-b border-ink/10 pb-2 text-xs font-bold uppercase tracking-wide text-ink/45 lg:grid ${gridClass}`}
+              >
                 <span className="text-center">{byCategory ? "Orden" : "Disp."}</span>
+                {byCategory && <span className="text-center">Disp.</span>}
                 <span>Foto</span>
                 <span>Producto</span>
                 <span className="text-right">Precio</span>
@@ -759,7 +768,7 @@ function ProductList({
               </div>
               <ul className="divide-y divide-ink/10">
                 {visible.map((p, i) => (
-                  <li key={p.id} className="grid grid-cols-[3rem_4rem_minmax(0,1fr)_7rem_5rem_10rem] items-center gap-4 py-3">
+                  <li key={p.id} className={`grid ${gridClass} items-center gap-4 py-3`}>
                     <div className="flex justify-center">
                       {byCategory ? (
                         <OrderButtons
@@ -777,7 +786,17 @@ function ProductList({
                         />
                       )}
                     </div>
-                    <div className="flex flex-col items-center gap-1.5">
+                    {byCategory && (
+                      <div className="flex justify-center">
+                        <ActiveToggle
+                          active={p.active}
+                          titleOn="Activar plato"
+                          titleOff="Desactivar plato"
+                          onToggle={(next) => toggleProductActive(p.id, next)}
+                        />
+                      </div>
+                    )}
+                    <div className="flex justify-center">
                       {p.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -789,14 +808,6 @@ function ProductList({
                         <div className="flex h-12 w-16 items-center justify-center rounded-md bg-pine/10">
                           <span className="font-display text-[10px] text-pine/40">DN</span>
                         </div>
-                      )}
-                      {byCategory && (
-                        <ActiveToggle
-                          active={p.active}
-                          titleOn="Activar plato"
-                          titleOff="Desactivar plato"
-                          onToggle={(next) => toggleProductActive(p.id, next)}
-                        />
                       )}
                     </div>
                     <div className="min-w-0">
