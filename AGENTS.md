@@ -23,7 +23,8 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 
 - `cookies()`, `params` y `searchParams` son async: `await cookies()`.
 - `revalidateTag` exige segundo argumento (`'max'`); para read-your-writes usar `updateTag`.
-- `serverActions.bodySizeLimit` está bajo `experimental` en `next.config.ts` (subida de fotos, 10mb).
+- `serverActions.bodySizeLimit` está bajo `experimental` en `next.config.ts` (1 MB; las fotos van directo a Supabase Storage).
+- Cabeceras de seguridad en `next.config.ts`: `poweredByHeader: false`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` y CSP base (`frame-ancestors`, `object-src`, `base-uri`).
 - `middleware` se renombró a `proxy`.
 - Imágenes remotas de Supabase pasan por `next/image` config: `remotePatterns` con `**.supabase.co` en `next.config.ts`.
 - ESLint con reglas estrictas de React: no llamar `setState` síncrono en efectos (usar patrón de ajuste durante render); usar `<Link>` de `next/link`, no `<a>`.
