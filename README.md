@@ -91,6 +91,17 @@ No hay suite de tests automatizada. El despliegue en Vercel requiere las variabl
 
 La tabla `orders` conserva modalidad, dirección canónica, distancia en metros, tarifa cobrada, artículos y total. WhatsApp incluye distancia recta y tarifa. El carrito continúa en `localStorage` hasta que el cliente confirma el envío.
 
+## Seguridad y despliegue
+
+- **Pedidos:** `orders` no tiene insert público; `submitOrder` valida y reconstruye ítems/precios desde Supabase e inserta con service_role server-only.
+- **Rate limiting:** 5 pedidos/10 min y 20/hora por IP; 10 logins/15 min por IP+email. Usa `rate_limits` + RPC `check_rate_limit` y falla abierto si el limitador no está disponible.
+- **Ventana de entrega:** configurable en Admin > Pedidos (hora de corte 0–23 y días máximos 1–30; defaults 16:00 y 5 días), evaluada en `America/Punta_Arenas`.
+- **Subidas:** JPG/PNG/WebP/AVIF, máximo 5 MB, extensión derivada del MIME y límites del bucket; `image_url` debe pertenecer al bucket `products`.
+- **Sesión:** cookies `secure` en producción, `sameSite=lax` y `maxAge` de 7 días; `proxy.ts` refresca la sesión de `/admin`.
+- **Cabeceras:** `nosniff`, `DENY`, `Referrer-Policy`, `Permissions-Policy` y CSP base; `X-Powered-By` deshabilitado.
+- **Cron:** `CRON_SECRET` con comparación de tiempo constante y error 500 genérico.
+- **Dependencias:** Next 16.4.3 y sharp 0.35.5; `npm audit --omit=dev` sin vulnerabilidades. Las restantes son moderadas de desarrollo (ESLint/minimatch).
+
 ## Estructura principal
 
 ```text

@@ -15,11 +15,15 @@ interface RateLimitResult {
 
 async function clientIp(): Promise<string> {
   const requestHeaders = await headers();
-  // Vercel setea x-real-ip; en otros entornos se usa el primer
-  // valor de x-forwarded-for. Evitar confiar en headers del cliente.
-  const realIp = requestHeaders.get("x-real-ip")?.trim();
-  const forwarded = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return realIp || forwarded || "unknown";
+  // El proxy confiable agrega la IP real al final de x-forwarded-for.
+  // No usar el primer valor: el cliente puede enviarlo falsificado.
+  const forwarded = requestHeaders
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .at(-1);
+  return forwarded || requestHeaders.get("x-real-ip")?.trim() || "unknown";
 }
 
 function hashKey(value: string): string | null {

@@ -17,7 +17,7 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 - `npm run dev` — desarrollo (Turbopack por defecto)
 - `npm run build` — build de producción (corre TypeScript)
 - `npm run lint` — ESLint directo (`next lint` ya no existe en Next 16)
-- Verificar cambios: `npm run lint` y `npm run build` (no hay tests)
+- Verificar cambios: `npm run lint`, `npm run build` y `npm audit --omit=dev` (no hay tests)
 
 ## Stack y quirks verificados (Next.js 16.4.3)
 
@@ -53,6 +53,8 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 - Número de teléfono protegido contra bots: nunca renderizar dígitos en HTML estático; usar `components/store/phone-contact.tsx` (revela el número en el navegador al hacer clic).
 - React escapa el output por defecto; no usar `dangerouslySetInnerHTML` con datos de productos/pedidos.
 - Verificar dependencias con `npm audit` al actualizar paquetes.
+- Decisiones aceptadas: P1.5 (rol admin) omitido; todos los usuarios de admin tienen los mismos permisos, con signups desactivados y alta manual. P1.3b (`httpOnly`) omitido; se compensa con `secure`, `sameSite`, `maxAge` corto y CSP.
+- Estado de dependencias: Next 16.4.3 y sharp 0.35.5; `npm audit --omit=dev` en 0. Las 16 moderadas restantes son de desarrollo (ESLint/minimatch).
 
 ## Diseño
 
