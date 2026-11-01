@@ -24,6 +24,8 @@ import {
   straightLineDistanceMeters,
   type Coordinates,
 } from "@/lib/distance";
+import { formatWhatsAppDate } from "@/lib/format";
+import { deliveryDateWindow } from "@/lib/order-date";
 import type { CartItem, OrderForm, Product, Side } from "@/lib/types";
 
 export async function signIn(
@@ -619,6 +621,10 @@ export async function submitOrder(
   if (!form || typeof form !== "object") {
     return { error: "Datos del pedido inválidos." };
   }
+  // Honeypot: los bots suelen rellenar todos los campos del formulario.
+  if (String(form.website ?? "").trim().length > 0) {
+    return { error: "No se pudo procesar el pedido." };
+  }
 
   const name = String(form.name ?? "").trim();
   const phone = String(form.phone ?? "").trim();
@@ -644,6 +650,16 @@ export async function submitOrder(
     new Date(`${deliveryDate}T00:00:00Z`).toISOString().slice(0, 10) !== deliveryDate
   ) {
     return { error: "Completa nombre, teléfono y fecha de entrega." };
+  }
+  const dateWindow = deliveryDateWindow();
+  if (deliveryDate < dateWindow.minDate || deliveryDate > dateWindow.maxDate) {
+    return {
+      error: `Elige una fecha entre ${formatWhatsAppDate(dateWindow.minDate)} y ${formatWhatsAppDate(dateWindow.maxDate)}.${
+        dateWindow.cutoffApplied
+          ? " Después de las 16:00 no se aceptan pedidos para hoy."
+          : ""
+      }`,
+    };
   }
   if (name.length > 100 || phone.length > 30 || note.length > 1000) {
     return {

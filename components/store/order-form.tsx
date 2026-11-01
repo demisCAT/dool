@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 import { useCart } from "./cart-provider";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatWhatsAppDate } from "@/lib/format";
+import { deliveryDateWindow } from "@/lib/order-date";
 import {
   deliveryFeeForDistance,
   DELIVERY_TARIFF_THRESHOLD_METERS,
@@ -26,20 +27,17 @@ import { submitOrder } from "@/app/admin/actions";
 import { isValidDeliveryNumber } from "@/lib/location";
 import type { OrderForm } from "@/lib/types";
 
-function today(): string {
-  return new Date().toISOString().split("T")[0];
-}
-
 const INITIAL_FORM: OrderForm = {
   name: "",
   phone: "",
-  deliveryDate: today(),
+  deliveryDate: deliveryDateWindow().minDate,
   fulfillmentMode: "",
   address: "",
   deliveryPlaceId: "",
   deliveryNumber: "",
   deliveryNumberUnknown: false,
   note: "",
+  website: "",
 };
 
 export function OrderForm({
@@ -68,6 +66,10 @@ export function OrderForm({
   const phoneOk = form.phone.replace(/\D/g, "").length >= 8;
   const nameOk = form.name.trim().length >= 2;
   const modeOk = form.fulfillmentMode === "pickup" || form.fulfillmentMode === "delivery";
+  const dateWindow = deliveryDateWindow();
+  const deliveryDateOk =
+    form.deliveryDate >= dateWindow.minDate &&
+    form.deliveryDate <= dateWindow.maxDate;
   const deliveryNumber = form.deliveryNumberUnknown
     ? ""
     : form.deliveryNumber.trim();
@@ -105,7 +107,7 @@ export function OrderForm({
   // Sin número la dirección se confirma por WhatsApp: la nota es opcional.
   const noteOptionalForPending = deliveryFeePending;
   const formOk =
-    nameOk && phoneOk && form.deliveryDate.length > 0 && modeOk && addressOk;
+    nameOk && phoneOk && deliveryDateOk && modeOk && addressOk;
   const finalTotal = orderTotal(
     items,
     pricing,
@@ -131,6 +133,21 @@ export function OrderForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!hasItems || !formOk || submitting) return;
+
+    const currentWindow = deliveryDateWindow();
+    if (
+      form.deliveryDate < currentWindow.minDate ||
+      form.deliveryDate > currentWindow.maxDate
+    ) {
+      setSubmitError(
+        `Elige una fecha entre ${formatWhatsAppDate(currentWindow.minDate)} y ${formatWhatsAppDate(currentWindow.maxDate)}.${
+          currentWindow.cutoffApplied
+            ? " Después de las 16:00 no se aceptan pedidos para hoy."
+            : ""
+        }`
+      );
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
@@ -407,13 +424,22 @@ export function OrderForm({
                 id="deliveryDate"
                 type="date"
                 required
-                min={today()}
+                min={dateWindow.minDate}
+                max={dateWindow.maxDate}
                 value={form.deliveryDate}
                 onChange={(e) =>
                   setForm({ ...form, deliveryDate: e.target.value })
                 }
                 className="h-12 rounded-lg border-2 border-ink/15 bg-cream px-4 text-ink focus:border-butter-deep focus:outline-none"
               />
+              {!deliveryDateOk && (
+                <p role="alert" className="text-sm font-semibold text-red-700">
+                  Elige una fecha entre {formatWhatsAppDate(dateWindow.minDate)} y{" "}
+                  {formatWhatsAppDate(dateWindow.maxDate)}.
+                  {dateWindow.cutoffApplied &&
+                    " Después de las 16:00 no se aceptan pedidos para hoy."}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -563,6 +589,23 @@ export function OrderForm({
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
                 className="rounded-lg border-2 border-ink/15 bg-cream px-4 py-3 text-ink placeholder:text-ink/35 focus:border-butter-deep focus:outline-none"
+              />
+            </div>
+
+            {/* Honeypot anti-bots: invisible para personas reales. */}
+            <div
+              aria-hidden="true"
+              className="absolute left-[-9999px] h-0 w-0 overflow-hidden"
+            >
+              <label htmlFor="website">Sitio web</label>
+              <input
+                id="website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={form.website ?? ""}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
               />
             </div>
 

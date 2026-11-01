@@ -47,6 +47,8 @@ export interface OrderForm {
   /** El usuario no tiene el número o la dirección no tiene número. */
   deliveryNumberUnknown: boolean;
   note: string;
+  /** Honeypot anti-bots: debe quedar vacío. */
+  website?: string;
 }
 
 export type OrderStatus = "pendiente" | "recibido";
