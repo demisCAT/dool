@@ -15,6 +15,8 @@ import {
   DELIVERY_MAX_DISTANCE_KEY,
   DELIVERY_MAX_DISTANCE_MIN_KM,
   DELIVERY_MAX_DISTANCE_MAX_KM,
+  ORDER_CUTOFF_HOUR_KEY,
+  ORDER_MAX_DAYS_KEY,
   deliveryFeeForDistance,
   isWithinDeliveryRadius,
   type Pricing,
@@ -25,7 +27,13 @@ import {
   type Coordinates,
 } from "@/lib/distance";
 import { formatWhatsAppDate } from "@/lib/format";
-import { deliveryDateWindow } from "@/lib/order-date";
+import {
+  deliveryDateWindow,
+  ORDER_CUTOFF_HOUR_MAX,
+  ORDER_CUTOFF_HOUR_MIN,
+  ORDER_MAX_DAYS_MAX,
+  ORDER_MAX_DAYS_MIN,
+} from "@/lib/order-date";
 import { checkLoginRateLimit, checkOrderRateLimit } from "@/lib/rate-limit";
 import type { CartItem, OrderForm, Product, Side } from "@/lib/types";
 
@@ -657,16 +665,6 @@ export async function submitOrder(
   ) {
     return { error: "Completa nombre, teléfono y fecha de entrega." };
   }
-  const dateWindow = deliveryDateWindow();
-  if (deliveryDate < dateWindow.minDate || deliveryDate > dateWindow.maxDate) {
-    return {
-      error: `Elige una fecha entre ${formatWhatsAppDate(dateWindow.minDate)} y ${formatWhatsAppDate(dateWindow.maxDate)}.${
-        dateWindow.cutoffApplied
-          ? " Después de las 16:00 no se aceptan pedidos para hoy."
-          : ""
-      }`,
-    };
-  }
   if (name.length > 100 || phone.length > 30 || note.length > 1000) {
     return {
       error: "Revisa los datos: nombre, teléfono o nota son demasiado largos.",
@@ -713,6 +711,21 @@ export async function submitOrder(
       ])
     )
   );
+
+  const dateWindow = deliveryDateWindow(new Date(), {
+    cutoffHour: pricing.orderCutoffHour,
+    maxDays: pricing.orderMaxDays,
+  });
+  if (deliveryDate < dateWindow.minDate || deliveryDate > dateWindow.maxDate) {
+    const cutoff = String(pricing.orderCutoffHour).padStart(2, "0");
+    return {
+      error: `Elige una fecha entre ${formatWhatsAppDate(dateWindow.minDate)} y ${formatWhatsAppDate(dateWindow.maxDate)}.${
+        dateWindow.cutoffApplied
+          ? ` Después de las ${cutoff}:00 no se aceptan pedidos para hoy.`
+          : ""
+      }`,
+    };
+  }
 
   // Los precios y la disponibilidad se leen de la base de datos, no del
   // carrito del navegador.
@@ -946,6 +959,47 @@ export async function saveDeliveryFee(
         e instanceof Error && e.message === "No autorizado"
           ? "Sesión vencida. Vuelve a iniciar sesión."
           : "No se pudieron guardar las tarifas de despacho.",
+    };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { error: null, ok: true };
+}
+
+export async function saveOrderDateSettings(
+  _prev: { error: string | null; ok?: boolean },
+  formData: FormData
+): Promise<{ error: string | null; ok?: boolean }> {
+  const cutoffHour = Number(formData.get("order_cutoff_hour"));
+  const maxDays = Number(formData.get("order_max_days"));
+
+  if (
+    !Number.isSafeInteger(cutoffHour) ||
+    cutoffHour < ORDER_CUTOFF_HOUR_MIN ||
+    cutoffHour > ORDER_CUTOFF_HOUR_MAX ||
+    !Number.isSafeInteger(maxDays) ||
+    maxDays < ORDER_MAX_DAYS_MIN ||
+    maxDays > ORDER_MAX_DAYS_MAX
+  ) {
+    return {
+      error: `La hora de corte debe ser un entero entre ${ORDER_CUTOFF_HOUR_MIN} y ${ORDER_CUTOFF_HOUR_MAX}, y los días máximos un entero entre ${ORDER_MAX_DAYS_MIN} y ${ORDER_MAX_DAYS_MAX}.`,
+    };
+  }
+
+  try {
+    const supabase = await requireUser();
+    const { error } = await supabase.from("settings").upsert([
+      { key: ORDER_CUTOFF_HOUR_KEY, value: String(cutoffHour) },
+      { key: ORDER_MAX_DAYS_KEY, value: String(maxDays) },
+    ]);
+    if (error) throw error;
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error && e.message === "No autorizado"
+          ? "Sesión vencida. Vuelve a iniciar sesión."
+          : "No se pudieron guardar las fechas de entrega.",
     };
   }
 

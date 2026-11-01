@@ -3,6 +3,14 @@ import { createServerClientInstance } from "@/lib/supabase/server";
 import { getStoreData } from "@/lib/supabase/queries";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { DELIVERY_MAX_DISTANCE_DEFAULT_METERS } from "@/lib/pricing";
+import {
+  ORDER_CUTOFF_HOUR_DEFAULT,
+  ORDER_CUTOFF_HOUR_MAX,
+  ORDER_CUTOFF_HOUR_MIN,
+  ORDER_MAX_DAYS_DEFAULT,
+  ORDER_MAX_DAYS_MAX,
+  ORDER_MAX_DAYS_MIN,
+} from "@/lib/order-date";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +78,8 @@ export default async function AdminPage() {
   );
 
   const storedMaxDistance = Number(settingsMap["delivery_max_distance_m"]);
+  const storedCutoffHour = Number(settingsMap["order_cutoff_hour"]);
+  const storedMaxDays = Number(settingsMap["order_max_days"]);
   const settings = {
     pendingDays: Number(settingsMap["order_retention_pending_days"] ?? 5),
     receivedDays: Number(settingsMap["order_retention_received_days"] ?? 30),
@@ -83,6 +93,18 @@ export default async function AdminPage() {
       Number.isSafeInteger(storedMaxDistance) && storedMaxDistance > 0
         ? storedMaxDistance
         : DELIVERY_MAX_DISTANCE_DEFAULT_METERS,
+    orderCutoffHour:
+      Number.isSafeInteger(storedCutoffHour) &&
+      storedCutoffHour >= ORDER_CUTOFF_HOUR_MIN &&
+      storedCutoffHour <= ORDER_CUTOFF_HOUR_MAX
+        ? storedCutoffHour
+        : ORDER_CUTOFF_HOUR_DEFAULT,
+    orderMaxDays:
+      Number.isSafeInteger(storedMaxDays) &&
+      storedMaxDays >= ORDER_MAX_DAYS_MIN &&
+      storedMaxDays <= ORDER_MAX_DAYS_MAX
+        ? storedMaxDays
+        : ORDER_MAX_DAYS_DEFAULT,
   };
 
   return (

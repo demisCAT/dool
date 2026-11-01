@@ -7,6 +7,10 @@ import { OrderForm } from "@/components/store/order-form";
 import { Footer } from "@/components/store/footer";
 import { getStoreData } from "@/lib/supabase/queries";
 import { DELIVERY_ORIGIN } from "@/lib/location";
+import {
+  ORDER_CUTOFF_HOUR_DEFAULT,
+  ORDER_MAX_DAYS_DEFAULT,
+} from "@/lib/order-date";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +30,8 @@ export default async function Home() {
           deliveryFee: 0,
           deliveryFeeOver2Km: null,
           deliveryMaxDistanceMeters: 10_000,
+          orderCutoffHour: ORDER_CUTOFF_HOUR_DEFAULT,
+          orderMaxDays: ORDER_MAX_DAYS_DEFAULT,
         },
       };
   const mapsBrowserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";

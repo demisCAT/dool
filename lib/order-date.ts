@@ -1,6 +1,10 @@
 export const BUSINESS_TIME_ZONE = "America/Punta_Arenas";
-export const ORDER_CUTOFF_HOUR = 16;
-export const ORDER_MAX_DAYS = 5;
+export const ORDER_CUTOFF_HOUR_DEFAULT = 16;
+export const ORDER_MAX_DAYS_DEFAULT = 5;
+export const ORDER_CUTOFF_HOUR_MIN = 0;
+export const ORDER_CUTOFF_HOUR_MAX = 23;
+export const ORDER_MAX_DAYS_MIN = 1;
+export const ORDER_MAX_DAYS_MAX = 30;
 
 interface TimeZoneParts {
   year: string;
@@ -53,17 +57,22 @@ export function addDaysToDateKey(dateKey: string, days: number): string {
  * - máximo hoy + 5 días;
  * - después de las 16:00 locales no se acepta el mismo día.
  */
-export function deliveryDateWindow(now = new Date()): {
+export function deliveryDateWindow(
+  now = new Date(),
+  options?: { cutoffHour?: number; maxDays?: number }
+): {
   minDate: string;
   maxDate: string;
   cutoffApplied: boolean;
 } {
+  const cutoffHour = options?.cutoffHour ?? ORDER_CUTOFF_HOUR_DEFAULT;
+  const maxDays = options?.maxDays ?? ORDER_MAX_DAYS_DEFAULT;
   const today = dateKeyInTimeZone(now);
-  const cutoffApplied = hourInTimeZone(now) >= ORDER_CUTOFF_HOUR;
+  const cutoffApplied = hourInTimeZone(now) >= cutoffHour;
 
   return {
     minDate: cutoffApplied ? addDaysToDateKey(today, 1) : today,
-    maxDate: addDaysToDateKey(today, ORDER_MAX_DAYS),
+    maxDate: addDaysToDateKey(today, maxDays),
     cutoffApplied,
   };
 }

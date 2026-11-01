@@ -30,7 +30,7 @@ import type { OrderForm } from "@/lib/types";
 const INITIAL_FORM: OrderForm = {
   name: "",
   phone: "",
-  deliveryDate: deliveryDateWindow().minDate,
+  deliveryDate: "",
   fulfillmentMode: "",
   address: "",
   deliveryPlaceId: "",
@@ -50,7 +50,14 @@ export function OrderForm({
   deliveryConfigured: boolean;
 }) {
   const { items, total, setQty, remove, clear, pricing } = useCart();
-  const [form, setForm] = useState<OrderForm>(INITIAL_FORM);
+  const createInitialForm = (): OrderForm => ({
+    ...INITIAL_FORM,
+    deliveryDate: deliveryDateWindow(new Date(), {
+      cutoffHour: pricing.orderCutoffHour,
+      maxDays: pricing.orderMaxDays,
+    }).minDate,
+  });
+  const [form, setForm] = useState<OrderForm>(createInitialForm);
   const [destination, setDestination] = useState<Coordinates | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -66,7 +73,10 @@ export function OrderForm({
   const phoneOk = form.phone.replace(/\D/g, "").length >= 8;
   const nameOk = form.name.trim().length >= 2;
   const modeOk = form.fulfillmentMode === "pickup" || form.fulfillmentMode === "delivery";
-  const dateWindow = deliveryDateWindow();
+  const dateWindow = deliveryDateWindow(new Date(), {
+    cutoffHour: pricing.orderCutoffHour,
+    maxDays: pricing.orderMaxDays,
+  });
   const deliveryDateOk =
     form.deliveryDate >= dateWindow.minDate &&
     form.deliveryDate <= dateWindow.maxDate;
@@ -134,15 +144,19 @@ export function OrderForm({
     e.preventDefault();
     if (!hasItems || !formOk || submitting) return;
 
-    const currentWindow = deliveryDateWindow();
+    const currentWindow = deliveryDateWindow(new Date(), {
+      cutoffHour: pricing.orderCutoffHour,
+      maxDays: pricing.orderMaxDays,
+    });
     if (
       form.deliveryDate < currentWindow.minDate ||
       form.deliveryDate > currentWindow.maxDate
     ) {
+      const cutoff = String(pricing.orderCutoffHour).padStart(2, "0");
       setSubmitError(
         `Elige una fecha entre ${formatWhatsAppDate(currentWindow.minDate)} y ${formatWhatsAppDate(currentWindow.maxDate)}.${
           currentWindow.cutoffApplied
-            ? " Después de las 16:00 no se aceptan pedidos para hoy."
+            ? ` Después de las ${cutoff}:00 no se aceptan pedidos para hoy.`
             : ""
         }`
       );
@@ -187,7 +201,7 @@ export function OrderForm({
 
   function confirmSent() {
     clear();
-    setForm(INITIAL_FORM);
+    setForm(createInitialForm());
     setDestination(null);
     setConfirmOpen(false);
     setSent(true);
@@ -437,7 +451,9 @@ export function OrderForm({
                   Elige una fecha entre {formatWhatsAppDate(dateWindow.minDate)} y{" "}
                   {formatWhatsAppDate(dateWindow.maxDate)}.
                   {dateWindow.cutoffApplied &&
-                    " Después de las 16:00 no se aceptan pedidos para hoy."}
+                    ` Después de las ${String(
+                      pricing.orderCutoffHour
+                    ).padStart(2, "0")}:00 no se aceptan pedidos para hoy.`}
                 </p>
               )}
             </div>

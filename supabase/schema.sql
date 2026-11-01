@@ -74,7 +74,9 @@ insert into public.settings (key, value) values
   ('order_retention_received_days', '30'),
   ('no_side_discount', '0'),
   ('delivery_fee', '0'),
-  ('delivery_max_distance_m', '10000')
+  ('delivery_max_distance_m', '10000'),
+  ('order_cutoff_hour', '16'),
+  ('order_max_days', '5')
 on conflict (key) do nothing;
 
 -- ============ RLS ============

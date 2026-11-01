@@ -16,6 +16,12 @@ import {
   DELIVERY_MAX_DISTANCE_MIN_KM,
   DELIVERY_TARIFF_THRESHOLD_METERS,
 } from "@/lib/pricing";
+import {
+  ORDER_CUTOFF_HOUR_MAX,
+  ORDER_CUTOFF_HOUR_MIN,
+  ORDER_MAX_DAYS_MAX,
+  ORDER_MAX_DAYS_MIN,
+} from "@/lib/order-date";
 import { createClient } from "@/lib/supabase/client";
 import {
   saveProduct,
@@ -34,6 +40,7 @@ import {
   saveSettings,
   saveNoSideDiscount,
   saveDeliveryFee,
+  saveOrderDateSettings,
   signOut,
 } from "@/app/admin/actions";
 import { ActiveToggle } from "./active-toggle";
@@ -103,6 +110,10 @@ export function AdminPanel({
   const [deliveryMaxDistanceKm, setDeliveryMaxDistanceKm] = useState(
     String(Math.round(settings.deliveryMaxDistanceMeters / 1000))
   );
+  const [orderCutoffHour, setOrderCutoffHour] = useState(
+    String(settings.orderCutoffHour)
+  );
+  const [orderMaxDays, setOrderMaxDays] = useState(String(settings.orderMaxDays));
   const [noSideDiscount, setNoSideDiscount] = useState(
     String(settings.noSideDiscount)
   );
@@ -131,6 +142,10 @@ export function AdminPanel({
     error: null,
     ok: false,
   });
+  const [orderDateState, orderDateAction, orderDatePending] = useActionState(
+    saveOrderDateSettings,
+    { error: null, ok: false }
+  );
 
   const [prevOk, setPrevOk] = useState({
     product: false,
@@ -377,6 +392,15 @@ export function AdminPanel({
                 action={feeAction}
                 pending={feePending}
                 state={feeState}
+              />
+              <OrderDateForm
+                cutoffHour={orderCutoffHour}
+                onChangeCutoffHour={setOrderCutoffHour}
+                maxDays={orderMaxDays}
+                onChangeMaxDays={setOrderMaxDays}
+                action={orderDateAction}
+                pending={orderDatePending}
+                state={orderDateState}
               />
             </>
           ) : tab === "acompanamientos" ? (
@@ -1330,6 +1354,94 @@ function DeliveryFeeForm({
           className="inline-flex h-11 w-fit items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
         >
           {pending ? "Guardando…" : "Guardar tarifas"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function OrderDateForm({
+  cutoffHour,
+  onChangeCutoffHour,
+  maxDays,
+  onChangeMaxDays,
+  action,
+  pending,
+  state,
+}: {
+  cutoffHour: string;
+  onChangeCutoffHour: (value: string) => void;
+  maxDays: string;
+  onChangeMaxDays: (value: string) => void;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  state: { error: string | null; ok?: boolean };
+}) {
+  return (
+    <section className="border-b-2 border-dashed border-ink/10 pb-8">
+      <h2 className="font-display text-2xl text-pine">Fechas de entrega</h2>
+      <p className="mt-1 text-sm text-ink/60">
+        Se evalúa en la zona horaria de Puerto Natales (America/Punta_Arenas).
+        Después de la hora de corte no se acepta el mismo día. La ventana
+        máxima son los días hacia adelante.
+      </p>
+      <form action={action} className="mt-5 flex flex-col gap-4">
+        <div className="grid max-w-lg gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="order-cutoff-hour"
+              className="text-sm font-bold text-pine"
+            >
+              Hora de corte (0–23)
+            </label>
+            <input
+              id="order-cutoff-hour"
+              name="order_cutoff_hour"
+              type="number"
+              min={ORDER_CUTOFF_HOUR_MIN}
+              max={ORDER_CUTOFF_HOUR_MAX}
+              step={1}
+              required
+              value={cutoffHour}
+              onChange={(e) => onChangeCutoffHour(e.target.value)}
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="order-max-days"
+              className="text-sm font-bold text-pine"
+            >
+              Días máximos hacia adelante
+            </label>
+            <input
+              id="order-max-days"
+              name="order_max_days"
+              type="number"
+              min={ORDER_MAX_DAYS_MIN}
+              max={ORDER_MAX_DAYS_MAX}
+              step={1}
+              required
+              value={maxDays}
+              onChange={(e) => onChangeMaxDays(e.target.value)}
+              className="h-11 rounded-lg border-2 border-ink/15 bg-cream px-3 focus:border-butter-deep focus:outline-none"
+            />
+          </div>
+        </div>
+        {state.error && (
+          <p role="alert" className="text-sm font-semibold text-red-700">
+            {state.error}
+          </p>
+        )}
+        {state.ok && (
+          <p className="text-sm font-semibold text-pine">Fechas guardadas.</p>
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex h-11 w-fit items-center rounded-full bg-pine px-7 font-bold text-chalk transition-colors hover:bg-pine-deep disabled:opacity-60"
+        >
+          {pending ? "Guardando…" : "Guardar fechas"}
         </button>
       </form>
     </section>

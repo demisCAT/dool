@@ -78,4 +78,8 @@ export interface RetentionSettings {
   deliveryFeeOver2Km: number | null;
   /** Radio máximo de despacho en metros, configurable en el panel. */
   deliveryMaxDistanceMeters: number;
+  /** Hora local (0–23) de corte para pedidos del mismo día. */
+  orderCutoffHour: number;
+  /** Días máximos hacia adelante para la fecha de entrega. */
+  orderMaxDays: number;
 }
