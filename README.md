@@ -81,7 +81,7 @@ npm run build
 npm run start
 ```
 
-No hay suite de tests automatizada. El despliegue en Vercel requiere las variables anteriores; `vercel.json` programa `/api/cron/cleanup-orders` a las 04:00 UTC. Al modificar dependencias, revisa `npm audit`.
+No hay suite de tests automatizada. GitHub Actions ejecuta lint, build, búsqueda básica de secretos y `npm audit --omit=dev` en cada push a `main` y pull request (`.github/workflows/security.yml`). El despliegue en Vercel requiere las variables anteriores; `vercel.json` programa `/api/cron/cleanup-orders` a las 04:00 UTC. Al modificar dependencias, revisa `npm audit`.
 
 ## Precios y pedidos
 

@@ -18,6 +18,7 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 - `npm run build` — build de producción (corre TypeScript)
 - `npm run lint` — ESLint directo (`next lint` ya no existe en Next 16)
 - Verificar cambios: `npm run lint`, `npm run build` y `npm audit --omit=dev` (no hay tests)
+- CI: `.github/workflows/security.yml` ejecuta esas verificaciones y una búsqueda básica de secretos en push a `main` y pull requests.
 
 ## Stack y quirks verificados (Next.js 16.4.3)
 
