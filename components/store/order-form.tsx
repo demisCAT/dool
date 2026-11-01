@@ -150,7 +150,8 @@ export function OrderForm({
       };
       const url = buildWhatsAppUrl(
         buildOrderMessage(
-          items,
+          // Usar los ítems y precios reconstruidos por el servidor.
+          res.items ?? items,
           confirmedForm,
           res.pricing ?? pricing,
           res.deliveryQuote?.distanceMeters ?? null,

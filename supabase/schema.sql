@@ -88,10 +88,9 @@ create policy "sides_lectura_publica" on public.sides
 create policy "settings_lectura_publica" on public.settings
   for select using (true);
 
--- Pedidos: el cliente puede INSERTAR (sin sesión); leer/editar/borrar solo admin
-create policy "orders_insercion_publica" on public.orders
-  for insert to anon, authenticated with check (true);
-
+-- Pedidos: sin INSERT público. El servidor valida ítems, precios, distancia
+-- y tarifa en submitOrder y luego inserta con la service_role.
+-- Leer/editar/borrar: solo admin autenticado.
 create policy "orders_lectura_admin" on public.orders
   for select to authenticated using (true);
 

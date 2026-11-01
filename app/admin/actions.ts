@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClientInstance } from "@/lib/supabase/server";
+import { createServiceClientInstance } from "@/lib/supabase/service";
 import { DELIVERY_ORIGIN, isValidDeliveryNumber } from "@/lib/location";
 import {
   effectiveUnitPrice,
@@ -23,7 +24,7 @@ import {
   straightLineDistanceMeters,
   type Coordinates,
 } from "@/lib/distance";
-import type { CartItem, OrderForm } from "@/lib/types";
+import type { CartItem, OrderForm, Product, Side } from "@/lib/types";
 
 export async function signIn(
   _prev: { error: string | null },
@@ -470,12 +471,135 @@ export async function moveProduct(
   return { error: null };
 }
 
+/**
+ * Reconstruye los ítems del pedido desde la base de datos. El navegador solo
+ * aporta IDs y cantidades; precios, nombres y disponibilidad se leen de
+ * `products`/`sides` para que un cliente no pueda alterar el total.
+ */
+async function resolveOrderItems(
+  supabase: Awaited<ReturnType<typeof createServerClientInstance>>,
+  rawItems: unknown
+): Promise<{ items: CartItem[] } | { error: string }> {
+  if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > 50) {
+    return { error: "Tu pedido está vacío o tiene demasiados productos." };
+  }
+
+  const parsed: { productId: string; sideId: string | null; qty: number }[] = [];
+  for (const raw of rawItems) {
+    if (!raw || typeof raw !== "object") {
+      return { error: "Hay un producto inválido en tu pedido." };
+    }
+    const item = raw as { product?: unknown; side?: unknown; qty?: unknown };
+    const product = item.product as { id?: unknown } | null;
+    const productId =
+      product && typeof product.id === "string" ? product.id.trim() : "";
+    const qty = item.qty;
+    if (
+      !productId ||
+      productId.length > 64 ||
+      !Number.isSafeInteger(qty) ||
+      (qty as number) < 1 ||
+      (qty as number) > 99
+    ) {
+      return { error: "Hay un producto o una cantidad inválida en tu pedido." };
+    }
+
+    let sideId: string | null = null;
+    if (item.side !== null && item.side !== undefined) {
+      const side = item.side as { id?: unknown };
+      if (
+        typeof side.id !== "string" ||
+        !side.id.trim() ||
+        side.id.length > 64
+      ) {
+        return { error: "Hay un acompañamiento inválido en tu pedido." };
+      }
+      sideId = side.id.trim();
+    }
+
+    parsed.push({ productId, sideId, qty: qty as number });
+  }
+
+  const productIds = [...new Set(parsed.map((item) => item.productId))];
+  const sideIds = [
+    ...new Set(
+      parsed
+        .map((item) => item.sideId)
+        .filter((id): id is string => id !== null)
+    ),
+  ];
+
+  const [productsResult, sidesResult] = await Promise.all([
+    supabase
+      .from("products")
+      .select(
+        "id, category_id, name, description, price, image_url, active, with_side, position"
+      )
+      .in("id", productIds)
+      .eq("active", true),
+    sideIds.length > 0
+      ? supabase
+          .from("sides")
+          .select("id, name, description, active, position")
+          .in("id", sideIds)
+          .eq("active", true)
+      : Promise.resolve({ data: [] as Side[], error: null }),
+  ]);
+
+  if (productsResult.error || sidesResult.error) {
+    return { error: "No se pudo validar el pedido. Intenta de nuevo." };
+  }
+
+  const productsById = new Map(
+    ((productsResult.data ?? []) as Product[]).map((product) => [
+      product.id,
+      product,
+    ])
+  );
+  const sidesById = new Map(
+    ((sidesResult.data ?? []) as Side[]).map((side) => [side.id, side])
+  );
+
+  const items: CartItem[] = [];
+  for (const entry of parsed) {
+    const product = productsById.get(entry.productId);
+    if (!product) {
+      return {
+        error:
+          "Uno de los productos ya no está disponible. Actualiza tu carrito e intenta de nuevo.",
+      };
+    }
+
+    let side: Side | null = null;
+    if (entry.sideId) {
+      if (!product.with_side) {
+        return {
+          error:
+            "Uno de los productos ya no admite acompañamiento. Actualiza tu carrito e intenta de nuevo.",
+        };
+      }
+      side = sidesById.get(entry.sideId) ?? null;
+      if (!side) {
+        return {
+          error:
+            "Uno de los acompañamientos ya no está disponible. Actualiza tu carrito e intenta de nuevo.",
+        };
+      }
+    }
+
+    items.push({ product, side, qty: entry.qty });
+  }
+
+  return { items };
+}
+
 export async function submitOrder(
   items: CartItem[],
   form: OrderForm
 ): Promise<{
   error: string | null;
   pricing?: Pricing;
+  items?: CartItem[];
   deliveryQuote?: {
     address: string;
     distanceMeters: number;
@@ -483,10 +607,14 @@ export async function submitOrder(
     pending: boolean;
   };
 }> {
-  const name = form.name.trim();
-  const phone = form.phone.trim();
-  const deliveryDate = form.deliveryDate.trim();
-  const note = form.note.trim();
+  if (!form || typeof form !== "object") {
+    return { error: "Datos del pedido inválidos." };
+  }
+
+  const name = String(form.name ?? "").trim();
+  const phone = String(form.phone ?? "").trim();
+  const deliveryDate = String(form.deliveryDate ?? "").trim();
+  const note = String(form.note ?? "").trim();
   const mode = form.fulfillmentMode;
   const placeId = mode === "delivery" ? String(form.deliveryPlaceId ?? "").trim() : "";
   const deliveryNumberUnknown =
@@ -507,6 +635,11 @@ export async function submitOrder(
     new Date(`${deliveryDate}T00:00:00Z`).toISOString().slice(0, 10) !== deliveryDate
   ) {
     return { error: "Completa nombre, teléfono y fecha de entrega." };
+  }
+  if (name.length > 100 || phone.length > 30 || note.length > 1000) {
+    return {
+      error: "Revisa los datos: nombre, teléfono o nota son demasiado largos.",
+    };
   }
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "Tu pedido está vacío." };
@@ -543,6 +676,14 @@ export async function submitOrder(
     )
   );
 
+  // Los precios y la disponibilidad se leen de la base de datos, no del
+  // carrito del navegador.
+  const resolvedItems = await resolveOrderItems(supabase, items);
+  if ("error" in resolvedItems) {
+    return { error: resolvedItems.error };
+  }
+  const orderItems = resolvedItems.items;
+
   let deliveryQuote:
     | {
         address: string;
@@ -574,8 +715,8 @@ export async function submitOrder(
       };
     }
     // El número escrito por el usuario habilita el cálculo; si no hay número,
-    // la tarifa queda pendiente y la nota es obligatoria para describir la
-    // dirección real. Google solo prellena el campo en el navegador.
+    // la tarifa queda pendiente y la dirección se confirma por WhatsApp.
+    // Google solo prellena el campo en el navegador.
     const effectiveNumber = deliveryNumber;
     const feePending = !effectiveNumber;
     if (effectiveNumber) {
@@ -602,13 +743,21 @@ export async function submitOrder(
 
   const deliveryFee = deliveryQuote?.fee ?? 0;
   const total = orderTotal(
-    items,
+    orderItems,
     pricing,
     mode,
     deliveryFeePending ? null : deliveryDistanceMeters
   );
 
-  const { error } = await supabase.from("orders").insert({
+  // El insert no pasa por RLS: se usa la service_role únicamente en servidor
+  // después de validar ítems, precios, distancia y tarifa.
+  const service = createServiceClientInstance();
+  if (!service) {
+    console.error("Falta SUPABASE_SERVICE_ROLE_KEY para guardar pedidos.");
+    return { error: "No se pudo guardar el pedido. Intenta de nuevo." };
+  }
+
+  const { error } = await service.from("orders").insert({
     name,
     phone,
     delivery_date: deliveryDate,
@@ -618,7 +767,7 @@ export async function submitOrder(
     delivery_fee_pending: deliveryFeePending,
     delivery_distance_m: deliveryDistanceMeters,
     note,
-    items: items.map((item) => ({
+    items: orderItems.map((item) => ({
       ...item,
       unit_price: effectiveUnitPrice(item.product, item.side, pricing),
     })),
@@ -630,7 +779,7 @@ export async function submitOrder(
     console.error("Error guardando pedido:", error.message);
     return { error: "No se pudo guardar el pedido. Intenta de nuevo." };
   }
-  return { error: null, pricing, deliveryQuote };
+  return { error: null, pricing, items: orderItems, deliveryQuote };
 }
 
 /**

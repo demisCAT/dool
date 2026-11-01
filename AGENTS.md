@@ -19,7 +19,7 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 - `npm run lint` — ESLint directo (`next lint` ya no existe en Next 16)
 - Verificar cambios: `npm run lint` y `npm run build` (no hay tests)
 
-## Stack y quirks verificados (Next.js 16.3)
+## Stack y quirks verificados (Next.js 16.4.3)
 
 - `cookies()`, `params` y `searchParams` son async: `await cookies()`.
 - `revalidateTag` exige segundo argumento (`'max'`); para read-your-writes usar `updateTag`.
@@ -31,16 +31,16 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 ## Supabase
 
 - Clientes: `lib/supabase/server.ts` (lee cookies), `lib/supabase/client.ts` (browser, para subir fotos), consultas públicas en `lib/supabase/queries.ts`.
-- RLS: lectura pública de catálogo/ajustes; escritura administrativa solo `authenticated`. `orders` admite inserción anónima, pero lectura/edición/borrado solo admin. Todo cambio de tablas/policies/buckets debe reflejarse en `supabase/schema.sql`.
+- RLS: lectura pública de catálogo/ajustes; escritura administrativa solo `authenticated`. `orders` no admite insert público: el servidor valida y usa service_role; lectura/edición/borrado solo admin. Todo cambio de tablas/policies/buckets debe reflejarse en `supabase/schema.sql`.
 - CRUD por Server Actions en `app/admin/actions.ts`; flujo de foto: upload desde navegador → URL pública → acción con `image_url`.
-- Esquema completo para proyectos nuevos: `supabase/schema.sql`. En bases existentes, aplicar `supabase/delivery-migration.sql` si faltan los campos de despacho, luego `supabase/delivery-distance-migration.sql` para registrar distancias, `supabase/delivery-radius-migration.sql` para el radio máximo y `supabase/delivery-fee-pending-migration.sql` para las tarifas pendientes, antes de desplegar (no volver a ejecutar todo `schema.sql`: recrea políticas).
-- `orders` guarda `fulfillment_mode` (`pickup`/`delivery`), `address`, `delivery_distance_m`, `delivery_fee` aplicado, `delivery_fee_pending` (tarifa por confirmar por falta de número), `items` JSON y `total`. `settings` guarda Tarifa 1 (`delivery_fee`), Tarifa 2 (`delivery_fee_over_2km`, ausente/null hasta configurarse), radio máximo de despacho (`delivery_max_distance_m`, en metros; default 10.000 si falta), descuento y retenciones. Migraciones existentes: `supabase/delivery-distance-migration.sql`, `supabase/delivery-radius-migration.sql` y `supabase/delivery-fee-pending-migration.sql`.
+- Esquema completo para proyectos nuevos: `supabase/schema.sql`. En bases existentes, aplicar `supabase/delivery-migration.sql` si faltan los campos de despacho, luego `supabase/delivery-distance-migration.sql` para registrar distancias, `supabase/delivery-radius-migration.sql` para el radio máximo, `supabase/delivery-fee-pending-migration.sql` para las tarifas pendientes y `supabase/orders-server-insert-migration.sql` para cerrar el insert anónimo de pedidos, antes de desplegar (no volver a ejecutar todo `schema.sql`: recrea políticas).
+- `orders` guarda `fulfillment_mode` (`pickup`/`delivery`), `address`, `delivery_distance_m`, `delivery_fee` aplicado, `delivery_fee_pending` (tarifa por confirmar por falta de número), `items` JSON y `total`. No tiene insert público: `submitOrder` reconstruye ítems/precios desde `products`/`sides` e inserta con `lib/supabase/service.ts` (service_role server-only). `settings` guarda Tarifa 1 (`delivery_fee`), Tarifa 2 (`delivery_fee_over_2km`, ausente/null hasta configurarse), radio máximo de despacho (`delivery_max_distance_m`, en metros; default 10.000 si falta), descuento y retenciones. Migraciones existentes: `supabase/delivery-distance-migration.sql`, `supabase/delivery-radius-migration.sql`, `supabase/delivery-fee-pending-migration.sql` y `supabase/orders-server-insert-migration.sql`.
 - Sin env de Supabase la app debe seguir funcionando: `/` muestra banner, `/admin` muestra pantalla de configuración (guards con `hasEnv`).
 
 ## Seguridad
 
-- Solo usar claves públicas en el cliente. Jamás agregar la `service_role` key a `.env*` ni a variables `NEXT_PUBLIC_*`; la anon key es pública por diseño — la frontera real de seguridad es RLS.
-- Toda acción de escritura **administrativa** en `app/admin/actions.ts` debe pasar por `requireUser()` (verificación de sesión), aunque RLS ya proteja. Excepción explícita: `submitOrder` es público para permitir pedidos anónimos; valida modalidad/dirección y recalcula descuentos/tarifa desde `settings` en servidor antes de insertar (RLS permite `insert` público en `orders`).
+- Solo usar claves públicas en el cliente. La `service_role` solo puede existir como variable server-only (`SUPABASE_SERVICE_ROLE_KEY`) y usarse en `lib/supabase/service.ts` para insertar pedidos; nunca en componentes cliente ni en `NEXT_PUBLIC_*`. La anon key es pública; RLS sigue siendo la frontera para el resto de operaciones.
+- Toda acción de escritura **administrativa** en `app/admin/actions.ts` debe pasar por `requireUser()` (verificación de sesión), aunque RLS ya proteja. Excepción explícita: `submitOrder` es público para permitir pedidos anónimos; valida modalidad/dirección, reconstruye ítems y precios desde `products`/`sides`, recalcula descuentos/tarifa desde `settings` e inserta con `lib/supabase/service.ts` (service_role server-only). No hay insert público en `orders`.
 - Google Places: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` es visible en el navegador; restringir por referrer y APIs. `GOOGLE_MAPS_SERVER_API_KEY` es privada, solo Places API (New), nunca Git ni `NEXT_PUBLIC_`. Limitar cuotas/alertas en Google Cloud. No confiar en las coordenadas ni tarifa del cliente; `submitOrder` resuelve el Place ID en el servidor.
 - Mantener genérico el mensaje de error del login ("Credenciales incorrectas") para no revelar si el correo existe.
 - Subida de fotos: validar MIME `image/*` y tamaño (5 MB) antes de subir; el path se genera con `crypto.randomUUID()` (nunca usar input del usuario en el path); el bucket `products` es público por diseño — no guardar ahí nada privado.
@@ -60,10 +60,10 @@ Tienda de comida casera para retiro o despacho a domicilio (Puerto Natales, Chil
 
 ## Entorno
 
-`.env.local` (gitignored) con claves Supabase/WhatsApp, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (restringida a referrer), `GOOGLE_MAPS_SERVER_API_KEY` (privada) y `CRON_SECRET` para el cron. El pin público del local está en `lib/location.ts`. No pedir ni revelar claves en chat. Ver `.env.example` y `README.md`.
+`.env.local` (gitignored) con claves Supabase/WhatsApp, `SUPABASE_SERVICE_ROLE_KEY` (privada, solo servidor), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (restringida a referrer), `GOOGLE_MAPS_SERVER_API_KEY` (privada) y `CRON_SECRET` para el cron. El pin público del local está en `lib/location.ts`. No pedir ni revelar claves en chat. Ver `.env.example` y `README.md`.
 
 ## Estructura
 
 - `app/` — tienda (`/`) y admin (`/admin`, `/admin/login`); `page.tsx` de la tienda es server component (`force-dynamic`)
 - `components/store/` — UI tienda (carrito con localStorage en `cart-provider.tsx`); `components/admin/` — panel
-- `lib/` — clientes Supabase, `types.ts`, `format.ts`, `pricing.ts`, `whatsapp.ts`, `location.ts`
+- `lib/` — clientes Supabase (`server.ts`, `client.ts`, `service.ts` server-only), `types.ts`, `format.ts`, `pricing.ts`, `whatsapp.ts`, `location.ts`
